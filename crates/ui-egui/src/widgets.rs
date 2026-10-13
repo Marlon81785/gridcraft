@@ -156,7 +156,9 @@ pub fn toggle_text_button(ui: &mut Ui, icon: Icon, label: &str, on: bool, tip: &
 /// [`split_button`] with its caption in the main part (Merge & Center): icon and caption run the
 /// default action, the arrow at the right edge opens the menu. `width` lines it up with the column it
 /// stands in. Returns (main clicked, arrow response).
-pub fn split_text_button(ui: &mut Ui, icon: Icon, label: &str, tip: &str, width: f32) -> (bool, Response) {
+/// Returns whether the main part was clicked, the arrow's response and the whole button's rect
+/// (Excel drops the arrow's menu under the whole button).
+pub fn split_text_button(ui: &mut Ui, icon: Icon, label: &str, tip: &str, width: f32) -> (bool, Response, Rect) {
     let t = Tokens::get(ui.ctx());
     let label = tr(ui, label);
     let main_w = (width - 13.0).max(26.0 + caption_width(ui, label));
@@ -172,7 +174,7 @@ pub fn split_text_button(ui: &mut Ui, icon: Icon, label: &str, tip: &str, width:
     icons::paint(ui.painter(), Rect::from_center_size(pos2(main.left() + 13.0, main.center().y), vec2(16.0, 16.0)), icon, t.text);
     ui.painter().text(pos2(main.left() + 26.0, main.center().y), Align2::LEFT_CENTER, label, theme::ui_font(12.5), t.text);
     icons::paint(ui.painter(), Rect::from_center_size(arrow.center(), vec2(10.0, 10.0)), Icon::Chevron, t.text_dim);
-    (m.on_hover_text(tr(ui, tip)).clicked(), a)
+    (m.on_hover_text(tr(ui, tip)).clicked(), a, rect)
 }
 
 /// A one-line text field for a value stored in the workbook, which callers reload every frame. The text being typed is

@@ -510,6 +510,52 @@ fn menu_items(app: &mut SheetApp, ui: &mut Ui, items: &[(&str, &str, serde_json:
     }
 }
 
+/// Menu rows with an icon and the access letter underlined, as in Excel's Merge & Center menu.
+fn icon_menu_items(app: &mut SheetApp, ui: &mut Ui, items: &[(Icon, &str, char, &str, serde_json::Value)]) {
+    let t = Tokens::get(ui.ctx());
+    let font = ui.style().text_styles.get(&egui::TextStyle::Button).cloned().unwrap_or_else(|| theme::ui_font(13.0));
+    for (icon, label, letter, id, params) in items {
+        let text = app.ui.language.tr(label).to_string();
+        let job = underlined(&text, Some(*letter), font.clone(), t.text);
+        let galley = ui.fonts_mut(|f| f.layout_job(job));
+        let (rect, response) = ui.allocate_exact_size(vec2((galley.size().x + 50.0).max(220.0), 30.0), Sense::click());
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &text));
+        if response.hovered() {
+            ui.painter().rect_filled(rect, 4.0, t.hover);
+        }
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.left() + 17.0, rect.center().y), vec2(18.0, 18.0)), *icon, t.text);
+        ui.painter().galley(pos2(rect.left() + 38.0, rect.center().y - galley.size().y / 2.0), galley, t.text);
+        if let Some(sequence) = keytip_table::item_letter(app.keytips.prefix().unwrap_or_default(), id) {
+            keytip(app, ui, sequence, pos2(rect.right() - 10.0, rect.center().y));
+        }
+        if response.clicked() {
+            act(app, id, params.clone());
+            ui.close();
+        }
+    }
+}
+
+/// `text` with the access letter underlined: its first capital occurrence (Merge & **C**enter),
+/// else its first occurrence in any case.
+fn underlined(text: &str, letter: Option<char>, font: egui::FontId, color: Color32) -> egui::text::LayoutJob {
+    let mut job = egui::text::LayoutJob::default();
+    let plain = egui::TextFormat { font_id: font, color, ..Default::default() };
+    let at = letter.and_then(|l| {
+        let upper = l.to_ascii_uppercase();
+        text.char_indices().find(|&(_, c)| c == upper).or_else(|| text.char_indices().find(|&(_, c)| c.eq_ignore_ascii_case(&l)))
+    });
+    match at {
+        Some((i, c)) => {
+            let end = i + c.len_utf8();
+            job.append(&text[..i], 0.0, plain.clone());
+            job.append(&text[i..end], 0.0, egui::TextFormat { underline: Stroke::new(1.0, color), ..plain.clone() });
+            job.append(&text[end..], 0.0, plain);
+        }
+        None => job.append(text, 0.0, plain),
+    }
+    job
+}
+
 fn home(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let st = active_style(app);
@@ -778,20 +824,24 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
         if wrap.clicked() {
             act(app, "home.wrapText", json!({}));
         }
-        let (m, ma) = split_text_button(ui, Icon::Merge, "Merge & Center", "Merge & Center", width);
+        let (m, ma, whole) = split_text_button(ui, Icon::Merge, "Merge & Center", "Merge & Center", width);
         control_keytip(app, ui, &ma, "home.mergeCenter");
         if m {
             act(app, "home.mergeCenter", json!({}));
         }
-        egui::Popup::menu(&ma).show(|ui| {
-            menu_items(
+        // As in Excel: under the whole button, left edges aligned, each item with its icon and
+        // its access letter underlined.
+        egui::Popup::menu(&ma).anchor(whole).align(egui::RectAlign::BOTTOM_START).show(|ui| {
+            icon_menu_items(
                 app,
                 ui,
                 &[
-                    ("Merge & Center", "home.mergeCenter", json!({})),
-                    ("Merge Across", "home.mergeAcross", json!({})),
-                    ("Merge Cells", "home.mergeCells", json!({})),
-                    ("Unmerge Cells", "home.unmergeCells", json!({})),
+                    (Icon::Merge, "Merge & Center", 'C', "home.mergeCenter", json!({})),
+                    (Icon::MergeAcross, "Merge Across", 'A', "home.mergeAcross", json!({})),
+                    (Icon::MergeCells, "Merge Cells", 'M', "home.mergeCells", json!({})),
+                    (Icon::Unmerge, "Unmerge Cells", 'U', "home.unmergeCells", json!({})),
+                    // Centres the text over the empty cells to its right without merging them.
+                    (Icon::CenterAcross, "Center Across Selection", 'S', "home.formatCells", json!({"style": {"align": {"h": "CenterAcross"}}})),
                 ],
             );
         });

@@ -124,6 +124,29 @@ fn wrap_text_and_merge_center_line_up_as_a_column() {
 }
 
 #[test]
+fn merge_menu_drops_under_the_whole_button_with_excels_items() {
+    let mut h = harness();
+    let merge = text_rect(&h, "Merge & Center");
+    let arrow = chevron_right_of(&h, merge).expect("Merge & Center has an arrow");
+    click(&mut h, arrow);
+    // Excel: Merge & Center, Merge Across, Merge Cells, Unmerge Cells, Center Across Selection,
+    // listed under the whole button (left edges together), not hanging off the arrow.
+    let mut last_top = merge.bottom();
+    for item in ["Merge Across", "Merge Cells", "Unmerge Cells", "Center Across Selection"] {
+        let r = text_rect(&h, item);
+        assert!(r.top() > last_top, "{item} is listed below the previous row");
+        assert!((r.left() - merge.left()).abs() < 20.0, "{item} starts at {}, under the caption at {}", r.left(), merge.left());
+        last_top = r.top();
+    }
+    let center_across = text_rect(&h, "Center Across Selection").center();
+    click(&mut h, center_across);
+    let doc = h.state().session.active().unwrap();
+    let sheet = doc.wb.active().unwrap();
+    let h_align = doc.wb.styles.get(sheet.style_id(CellRef::parse("A1").unwrap())).align.h;
+    assert_eq!(h_align, gridcraft_engine::model::HAlign::CenterAcross, "the item centres the text across the selection");
+}
+
+#[test]
 fn dragging_across_ribbon_captions_selects_no_text() {
     for text in ["Merge & Center", "Wrap Text"] {
         let mut h = harness();
