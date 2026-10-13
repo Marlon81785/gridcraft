@@ -1388,9 +1388,16 @@ pub(crate) fn paint_quadrant(
             continue;
         }
         let r = filter_button_rect(geo, sh, c);
-        p.rect_filled(r, 2.0, Color32::from_gray(250));
-        p.rect_stroke(r, 2.0, Stroke::new(1.0, Color32::from_gray(170)), StrokeKind::Inside);
-        crate::icons::paint(p, r.shrink(1.5), if active { crate::icons::Icon::Filter } else { crate::icons::Icon::Chevron }, Color32::from_gray(70));
+        p.rect_filled(r, 0.0, Color32::WHITE);
+        p.rect_stroke(r, 0.0, Stroke::new(1.0, Color32::from_rgb(166, 172, 179)), StrokeKind::Inside);
+        if active {
+            crate::icons::paint(p, r.shrink(1.5), crate::icons::Icon::Filter, Color32::from_gray(70));
+        } else {
+            // Excel's arrow: a filled triangle about a third of the button wide, centred.
+            let (c, w, h) = (r.center(), r.width() * 0.35 / 2.0, r.height() * 0.19);
+            let tri = vec![pos2(c.x - w, c.y - h / 2.0), pos2(c.x + w, c.y - h / 2.0), pos2(c.x, c.y + h / 2.0)];
+            p.add(egui::Shape::convex_polygon(tri, Color32::from_rgb(91, 92, 94), Stroke::NONE));
+        }
     }
 }
 
