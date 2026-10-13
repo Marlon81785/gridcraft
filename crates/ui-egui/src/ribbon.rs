@@ -8,7 +8,9 @@ use crate::SheetApp;
 use crate::icons::{self, Icon};
 use crate::keytips::keytip_table;
 use crate::theme::{self, Tokens};
-use crate::widgets::{big_button, color_palette, icon_button, small_button, split_button, split_text_button, toggle_button, toggle_text_button};
+use crate::widgets::{
+    big_button, color_palette, icon_button, small_button, split_button, split_text_button, text_column_width, toggle_button, toggle_text_button,
+};
 
 pub const TABS: &[&str] = &["Home", "Insert", "Draw", "Page Layout", "Formulas", "Data", "Review", "View", "Automate"];
 
@@ -299,6 +301,13 @@ fn sep(ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let (r, _) = ui.allocate_exact_size(vec2(13.0, 72.0), Sense::hover());
     ui.painter().line_segment([pos2(r.center().x, r.top() + 6.0), pos2(r.center().x, r.bottom() - 6.0)], Stroke::new(1.0, t.separator));
+}
+
+/// A [`sep`] inside a group, as tall as the rows it divides (Alignment: one row, or both).
+fn inner_sep(ui: &mut Ui, height: f32) {
+    let t = Tokens::get(ui.ctx());
+    let (r, _) = ui.allocate_exact_size(vec2(9.0, height), Sense::hover());
+    ui.painter().line_segment([pos2(r.center().x, r.top() + 3.0), pos2(r.center().x, r.bottom() - 3.0)], Stroke::new(1.0, t.separator));
 }
 
 fn active_style(app: &SheetApp) -> Style {
@@ -712,6 +721,7 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                     act(app, id, json!({}));
                 }
             }
+            inner_sep(ui, 24.0);
             let o = small_button(ui, Icon::Orientation, "", "Orientation", true);
             control_keytip(app, ui, &o, "home.orientation");
             let forced_o = invoke(app, "home.orientation");
@@ -731,11 +741,6 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                     ],
                 );
             });
-            let wrap = toggle_text_button(ui, Icon::Wrap, "Wrap Text", st.align.wrap, "Wrap Text");
-            control_keytip(app, ui, &wrap, "home.wrapText");
-            if wrap.clicked() {
-                act(app, "home.wrapText", json!({}));
-            }
         });
         ui.horizontal(|ui| {
             for (icon, h, id, tip) in [
@@ -751,6 +756,7 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                     act(app, id, json!({}));
                 }
             }
+            inner_sep(ui, 24.0);
             let __k = icon_button(ui, Icon::IndentDec, t.text, "Decrease Indent", vec2(24.0, 23.0));
             control_keytip(app, ui, &__k, "home.decreaseIndent");
             if __k.clicked() {
@@ -761,23 +767,33 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
             if __k.clicked() {
                 act(app, "home.increaseIndent", json!({}));
             }
-            let (m, ma) = split_text_button(ui, Icon::Merge, "Merge & Center", "Merge & Center");
-            control_keytip(app, ui, &ma, "home.mergeCenter");
-            if m {
-                act(app, "home.mergeCenter", json!({}));
-            }
-            egui::Popup::menu(&ma).show(|ui| {
-                menu_items(
-                    app,
-                    ui,
-                    &[
-                        ("Merge & Center", "home.mergeCenter", json!({})),
-                        ("Merge Across", "home.mergeAcross", json!({})),
-                        ("Merge Cells", "home.mergeCells", json!({})),
-                        ("Unmerge Cells", "home.unmergeCells", json!({})),
-                    ],
-                );
-            });
+        });
+    });
+    inner_sep(ui, 50.0);
+    // Wrap Text and Merge & Center are one column of equal buttons, the arrow at its right edge.
+    ui.vertical(|ui| {
+        let width = text_column_width(ui, &["Wrap Text", "Merge & Center"]);
+        let wrap = toggle_text_button(ui, Icon::Wrap, "Wrap Text", st.align.wrap, "Wrap Text", width);
+        control_keytip(app, ui, &wrap, "home.wrapText");
+        if wrap.clicked() {
+            act(app, "home.wrapText", json!({}));
+        }
+        let (m, ma) = split_text_button(ui, Icon::Merge, "Merge & Center", "Merge & Center", width);
+        control_keytip(app, ui, &ma, "home.mergeCenter");
+        if m {
+            act(app, "home.mergeCenter", json!({}));
+        }
+        egui::Popup::menu(&ma).show(|ui| {
+            menu_items(
+                app,
+                ui,
+                &[
+                    ("Merge & Center", "home.mergeCenter", json!({})),
+                    ("Merge Across", "home.mergeAcross", json!({})),
+                    ("Merge Cells", "home.mergeCells", json!({})),
+                    ("Unmerge Cells", "home.unmergeCells", json!({})),
+                ],
+            );
         });
     });
     sep(ui);

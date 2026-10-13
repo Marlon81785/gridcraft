@@ -130,12 +130,18 @@ fn caption_width(ui: &Ui, label: &str) -> f32 {
     ui.painter().layout_no_wrap(label.to_string(), theme::ui_font(12.5), Color32::WHITE).size().x + 6.0
 }
 
+/// The shared width of a column of [`toggle_text_button`]s and [`split_text_button`]s (Wrap Text over
+/// Merge & Center): icon, the widest caption, and room for a dropdown arrow at the right edge.
+pub fn text_column_width(ui: &Ui, labels: &[&str]) -> f32 {
+    26.0 + labels.iter().map(|label| caption_width(ui, tr(ui, label))).fold(0.0, f32::max) + 13.0
+}
+
 /// [`toggle_button`] with its caption right of the icon (Wrap Text): icon and caption are one hover
-/// highlight and one click target, as in Excel.
-pub fn toggle_text_button(ui: &mut Ui, icon: Icon, label: &str, on: bool, tip: &str) -> Response {
+/// highlight and one click target, as in Excel. `width` lines it up with the column it stands in.
+pub fn toggle_text_button(ui: &mut Ui, icon: Icon, label: &str, on: bool, tip: &str, width: f32) -> Response {
     let t = Tokens::get(ui.ctx());
     let label = tr(ui, label);
-    let (rect, resp) = ui.allocate_exact_size(vec2(26.0 + caption_width(ui, label), 24.0), Sense::click());
+    let (rect, resp) = ui.allocate_exact_size(vec2(width.max(26.0 + caption_width(ui, label)), 24.0), Sense::click());
     if on {
         ui.painter().rect_filled(rect, 4.0, t.pressed);
         ui.painter().rect_stroke(rect, 4.0, Stroke::new(1.0, t.separator), StrokeKind::Inside);
@@ -148,11 +154,12 @@ pub fn toggle_text_button(ui: &mut Ui, icon: Icon, label: &str, on: bool, tip: &
 }
 
 /// [`split_button`] with its caption in the main part (Merge & Center): icon and caption run the
-/// default action, the arrow after them opens the menu. Returns (main clicked, arrow response).
-pub fn split_text_button(ui: &mut Ui, icon: Icon, label: &str, tip: &str) -> (bool, Response) {
+/// default action, the arrow at the right edge opens the menu. `width` lines it up with the column it
+/// stands in. Returns (main clicked, arrow response).
+pub fn split_text_button(ui: &mut Ui, icon: Icon, label: &str, tip: &str, width: f32) -> (bool, Response) {
     let t = Tokens::get(ui.ctx());
     let label = tr(ui, label);
-    let main_w = 25.0 + caption_width(ui, label);
+    let main_w = (width - 13.0).max(26.0 + caption_width(ui, label));
     let (rect, _) = ui.allocate_exact_size(vec2(main_w + 13.0, 24.0), Sense::hover());
     let main = Rect::from_min_size(rect.min, vec2(main_w, 24.0));
     let arrow = Rect::from_min_max(pos2(main.right(), rect.top()), rect.max);
@@ -162,8 +169,8 @@ pub fn split_text_button(ui: &mut Ui, icon: Icon, label: &str, tip: &str) -> (bo
         ui.painter().rect_filled(rect, 4.0, t.hover);
         ui.painter().line_segment([pos2(main.right(), rect.top() + 3.0), pos2(main.right(), rect.bottom() - 3.0)], Stroke::new(1.0, t.separator));
     }
-    icons::paint(ui.painter(), Rect::from_center_size(pos2(main.left() + 12.5, main.center().y), vec2(16.0, 16.0)), icon, t.text);
-    ui.painter().text(pos2(main.left() + 25.0, main.center().y), Align2::LEFT_CENTER, label, theme::ui_font(12.5), t.text);
+    icons::paint(ui.painter(), Rect::from_center_size(pos2(main.left() + 13.0, main.center().y), vec2(16.0, 16.0)), icon, t.text);
+    ui.painter().text(pos2(main.left() + 26.0, main.center().y), Align2::LEFT_CENTER, label, theme::ui_font(12.5), t.text);
     icons::paint(ui.painter(), Rect::from_center_size(arrow.center(), vec2(10.0, 10.0)), Icon::Chevron, t.text_dim);
     (m.on_hover_text(tr(ui, tip)).clicked(), a)
 }

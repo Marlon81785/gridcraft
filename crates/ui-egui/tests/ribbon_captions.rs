@@ -1,4 +1,5 @@
-//! Ribbon captions belong to their buttons, and chrome text is not selectable (#929).
+//! Ribbon captions belong to their buttons, and chrome text is not selectable (#929). Wrap Text and
+//! Merge & Center stand as one column, as in Excel.
 
 use egui::text_selection::LabelSelectionState;
 use egui::{Event, Modifiers, PointerButton, Pos2, Rect, Shape, vec2};
@@ -41,6 +42,21 @@ fn text_rect(h: &Harness, text: &str) -> Rect {
             _ => None,
         })
         .unwrap_or_else(|| panic!("{text:?} was not painted"))
+}
+
+/// The centre of the first dropdown chevron painted right of `rect`, on its line.
+fn chevron_right_of(h: &Harness, rect: Rect) -> Option<Pos2> {
+    h.output()
+        .shapes
+        .iter()
+        .filter_map(|s| match &s.shape {
+            Shape::Path(p) if !p.closed && p.points.len() == 3 && p.points[0].y == p.points[2].y && p.points[1].y > p.points[0].y => {
+                Some(Rect::from_points(&p.points).center())
+            }
+            _ => None,
+        })
+        .filter(|c| c.x > rect.right() && rect.y_range().contains(c.y))
+        .min_by(|a, b| a.x.total_cmp(&b.x))
 }
 
 fn click(h: &mut Harness, at: Pos2) {
@@ -89,6 +105,21 @@ fn clicking_the_wrap_text_caption_wraps() {
     let doc = h.state().session.active().unwrap();
     let sheet = doc.wb.active().unwrap();
     assert!(doc.wb.styles.get(sheet.style_id(CellRef::parse("A1").unwrap())).align.wrap, "the caption must run the button's action");
+}
+
+#[test]
+fn wrap_text_and_merge_center_line_up_as_a_column() {
+    let mut h = harness();
+    let wrap = text_rect(&h, "Wrap Text");
+    let merge = text_rect(&h, "Merge & Center");
+    assert!((wrap.left() - merge.left()).abs() < 0.5, "captions start at {} and {}", wrap.left(), merge.left());
+    let arrow = chevron_right_of(&h, merge).expect("Merge & Center has no arrow right of its caption");
+    assert!(arrow.x - merge.right() < 20.0, "the arrow at {} does not follow the caption ending at {}", arrow.x, merge.right());
+    // Wrap Text is as wide as Merge & Center: its row is still Wrap Text above the arrow.
+    click(&mut h, Pos2::new(arrow.x, wrap.center().y));
+    let doc = h.state().session.active().unwrap();
+    let sheet = doc.wb.active().unwrap();
+    assert!(doc.wb.styles.get(sheet.style_id(CellRef::parse("A1").unwrap())).align.wrap, "Wrap Text stops short of the Merge & Center arrow");
 }
 
 #[test]
