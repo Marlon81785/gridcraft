@@ -1396,11 +1396,16 @@ pub(crate) fn paint_quadrant(
 
 pub fn filter_button_rect(geo: &Geo, sh: &Sheet, c: CellRef) -> Rect {
     let rect = geo.cell_rect(sh, c);
-    // Keep the button within the same header slot that AutoFit reserves.
-    let pad = 2.0 * geo.z;
-    let s = (rect.height() - 4.0).clamp(10.0, 18.0).min((sh.filter_button_space(c) * geo.z - pad).max(0.0));
+    // Excel draws the button 17 px square, 1 px in from the cell's bottom and right edges, and
+    // keeps that size at every zoom; only a row or column too small for it shrinks it.
+    let unit = geo.z / (sh.zoom as f32 / 100.0).max(0.1);
+    let pad = unit;
+    let s = (FILTER_BUTTON_PX * unit).min(rect.height() - 2.0 * pad).min(rect.width() - 2.0 * pad).max(0.0);
     Rect::from_min_size(pos2(rect.right() - s - pad, rect.bottom() - s - pad), vec2(s, s))
 }
+
+/// The AutoFilter button's side in sheet pixels at 100% zoom, as Excel draws it (measured).
+const FILTER_BUTTON_PX: f32 = 17.0;
 
 /// The outline segments of merged area `m` drawn at `rect`: the top and left edges come from the
 /// first row's and first column's cells, the bottom and right edges from the last row's and last
