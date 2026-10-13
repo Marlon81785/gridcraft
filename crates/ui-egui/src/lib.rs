@@ -952,6 +952,11 @@ impl SheetApp {
         self.session.mode = gridcraft_engine::Mode::Ready;
     }
 
+    /// Forgets the run of Tabs, so the next Enter moves straight down.
+    pub fn end_tab_run(&mut self) {
+        self.tab_run = None;
+    }
+
     /// Enter/Tab move inside a multi-cell selection, otherwise to the next cell.
     pub fn move_after_enter(&mut self, dr: i64, dc: i64) {
         let multi = self.session.active().is_some_and(|d| !d.selection.is_single_cell());
