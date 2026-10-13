@@ -1087,21 +1087,52 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
 fn font_combo(app: &mut SheetApp, ui: &mut Ui, st: &Style) {
     let name = st.font.name.clone();
     let (arrow, frame, entered) = typed_box(app, ui, "gridcraft.font_name_box", "home.fontName", "Font", &name, 150.0);
+    let fonts = font_list();
     if let Some(typed) = entered.filter(|t| !t.is_empty()) {
-        act(app, "home.fontName", json!({"name": font_for(&typed)}));
+        act(app, "home.fontName", json!({"name": font_for(&fonts, &typed)}));
     }
-    let items: Vec<(&str, String)> = FONTS.iter().map(|f| (*f, f.to_string())).collect();
-    if let ComboResult::Picked(value) = list_combo(ui, &arrow, frame, "font", &name, &items) {
+    // As in Excel: the workbook theme's heading and body fonts first, then every font A to Z.
+    let theme = app.session.active().map(|d| (d.wb.theme.major_font.clone(), d.wb.theme.minor_font.clone()));
+    let mut items: Vec<(&str, String)> = Vec::new();
+    if let Some((major, minor)) = &theme {
+        items.push((major.as_str(), format!("{major}  (Headings)")));
+        items.push((minor.as_str(), format!("{minor}  (Body)")));
+    }
+    items.extend(fonts.iter().map(|f| (f.as_str(), f.clone())));
+    // Wider than the box, as in Excel, so long family names stay on one line.
+    let under = Rect::from_min_size(frame.min, vec2(frame.width().max(280.0), frame.height()));
+    if let ComboResult::Picked(value) = list_combo(ui, &arrow, under, "font", &name, &items) {
         act(app, "home.fontName", json!({"name": value}));
     }
 }
 
-/// The font Enter applies for `typed`: the first one it begins, never a font that merely contains it
-/// (#932: `Aptos` gave Aptos Narrow). `FONTS` is sorted, so a name typed in full comes before the
-/// longer names it begins.
-fn font_for(typed: &str) -> String {
+/// Every font the list offers: the standard [`FONTS`] and the fonts installed on this machine
+/// ([`crate::fonts::families`], just the standard ones until the background scan finishes), A to Z.
+/// Built once after the scan, and borrowed from then on (the ribbon draws every frame).
+fn font_list() -> std::borrow::Cow<'static, [String]> {
+    static DONE: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    let build = || {
+        let mut fonts = crate::fonts::families();
+        fonts.sort_by_key(|f| f.to_lowercase());
+        fonts.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+        fonts
+    };
+    match DONE.get() {
+        Some(done) => std::borrow::Cow::Borrowed(done.as_slice()),
+        None if crate::fonts::scan_done() => std::borrow::Cow::Borrowed(DONE.get_or_init(build).as_slice()),
+        None => std::borrow::Cow::Owned(build()),
+    }
+}
+
+/// The font Enter applies for `typed`: an exact name first, then the first font it begins, never a
+/// font that merely contains it (#932: `Aptos` gave Aptos Narrow); otherwise the name as typed.
+fn font_for(fonts: &[String], typed: &str) -> String {
     let lower = typed.to_lowercase();
-    FONTS.iter().find(|f| f.to_lowercase().starts_with(&lower)).map_or_else(|| typed.to_string(), |f| f.to_string())
+    fonts
+        .iter()
+        .find(|f| f.to_lowercase() == lower)
+        .or_else(|| fonts.iter().find(|f| f.to_lowercase().starts_with(&lower)))
+        .map_or_else(|| typed.to_string(), |f| f.to_string())
 }
 
 pub const FONTS: &[&str] = &[
