@@ -419,7 +419,9 @@ fn combo_popup(
     let open_now = egui::Popup::is_id_open(ui.ctx(), popup_id);
     if open_now && !st.was_open {
         st.text = String::new();
-        st.sel = items.iter().position(|(v, _)| *v == current_value).map(|i| i as i32).unwrap_or(0);
+        // The last row with the current value: the Font list repeats the theme fonts at the top,
+        // and the highlight belongs on the font's own row in the A to Z list (Down = next font).
+        st.sel = items.iter().rposition(|(v, _)| *v == current_value).map(|i| i as i32).unwrap_or(0);
         // The reset lands on the frame AFTER the popup opens, which usually has no input of
         // its own — without a repaint request the stale filtered list stays on screen.
         ui.ctx().request_repaint();
