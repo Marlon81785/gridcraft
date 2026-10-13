@@ -112,7 +112,8 @@ fn wrap_text_and_merge_center_line_up_as_a_column() {
     let mut h = harness();
     let wrap = text_rect(&h, "Wrap Text");
     let merge = text_rect(&h, "Merge & Center");
-    assert!((wrap.left() - merge.left()).abs() < 0.5, "captions start at {} and {}", wrap.left(), merge.left());
+    // The glyphs' side bearings differ by font ("W" vs "M"), so allow a pixel or two; misaligned captions were 13 px apart.
+    assert!((wrap.left() - merge.left()).abs() < 2.0, "captions start at {} and {}", wrap.left(), merge.left());
     let arrow = chevron_right_of(&h, merge).expect("Merge & Center has no arrow right of its caption");
     assert!(arrow.x - merge.right() < 20.0, "the arrow at {} does not follow the caption ending at {}", arrow.x, merge.right());
     // Wrap Text is as wide as Merge & Center: its row is still Wrap Text above the arrow.
