@@ -246,6 +246,13 @@ fn save(app: &mut SheetApp, out: &mut Outcome) {
 
 // ---------------------------------------------------------------- navigation
 
+/// A page button's keytip badge (Alt, F, O, O for Browse… on Open), under the button.
+fn button_keytip(app: &SheetApp, ui: &Ui, button: &egui::Response, id: &str) {
+    if let Some(sequence) = crate::keytips::keytip_table::control_badge(app.keytips.prefix().unwrap_or_default(), id) {
+        crate::ribbon::keytip(app, ui, sequence, button.rect.center_bottom());
+    }
+}
+
 /// The page list's keytip badge (Alt, F): beside the icon, as Excel places them.
 fn nav_keytip(app: &SheetApp, ui: &Ui, item: &egui::Response, target: &str) {
     if let Some(sequence) = crate::keytips::keytip_table::file_sequence(target) {
@@ -435,7 +442,9 @@ fn new_page(app: &mut SheetApp, ui: &mut Ui, out: &mut Outcome) {
 
 fn open_page(app: &mut SheetApp, ui: &mut Ui, out: &mut Outcome) {
     let lang = app.ui.language;
-    if square_button(ui, Icon::OpenFolder, lang.tr("Browse…")).clicked() {
+    let browse = square_button(ui, Icon::OpenFolder, lang.tr("Browse…"));
+    button_keytip(app, ui, &browse, "file.open");
+    if browse.clicked() || crate::ribbon::invoke(app, "file.open") {
         let before = app.session.active().map(|d| d.uid);
         app.open_dialog("open", json!({}));
         // Desktop pickers return at once; the web picker delivers later (see `SheetApp::logic`).
@@ -553,7 +562,9 @@ fn save_as(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcom
     // Desktop: the system Save dialog. Web: the file downloads.
     let web = app.services.pick_save.is_none() && app.services.download.is_some();
     let label = if web { format!("{} (.{fmt})", lang.tr("Download")) } else { lang.tr("Browse…").to_string() };
-    if square_button(ui, Icon::OpenFolder, &label).clicked() && app.commit_edit(0, 0, false, false) {
+    let browse = square_button(ui, Icon::OpenFolder, &label);
+    button_keytip(app, ui, &browse, "file.saveAs");
+    if (browse.clicked() || crate::ribbon::invoke(app, "file.saveAs")) && app.commit_edit(0, 0, false, false) {
         if fmt == "xlsx" {
             let before = app.session.active().map(|d| (d.path.clone(), d.is_dirty()));
             app.open_dialog("saveAs", json!({}));
@@ -593,9 +604,9 @@ fn print(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcome)
                 crate::printing::show(&mut app.printing, ui, discover, |label| lang.tr(label).to_owned());
             }
             let can_print = app.services.print_native.is_none() || app.printing.ready();
-            if ui.add_enabled_ui(can_print, |ui| square_button(ui, Icon::Print, lang.tr("Print"))).inner.clicked()
-                && app.commit_edit(0, 0, false, false)
-            {
+            let button = ui.add_enabled_ui(can_print, |ui| square_button(ui, Icon::Print, lang.tr("Print"))).inner;
+            button_keytip(app, ui, &button, "file.print");
+            if (button.clicked() || (can_print && crate::ribbon::invoke(app, "file.print"))) && app.commit_edit(0, 0, false, false) {
                 app.print_now(params.clone());
                 out.close = app.services.print_native.is_none();
             }

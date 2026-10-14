@@ -358,7 +358,7 @@ fn checkbox_on(clicked: bool, shown: bool) -> bool {
 }
 
 /// Consume a one-shot keytip request for control `id` (set by `Action::Control`).
-fn invoke(app: &mut SheetApp, id: &str) -> bool {
+pub(crate) fn invoke(app: &mut SheetApp, id: &str) -> bool {
     if app.ui.keytip_invoke == Some(id) {
         app.ui.keytip_invoke = None;
         true

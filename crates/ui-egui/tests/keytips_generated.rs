@@ -2690,6 +2690,14 @@ fn keytip_fa_() {
 }
 
 #[test]
+fn keytip_fao_() {
+    let mut h = harness(blank());
+    sequence(&mut h, "FAO", false);
+    assert!(h.state().message.is_none() && h.state().toast.is_none(), "FAO must route to its control without an error box");
+    assert_eq!(h.state().keytips.prefix(), None);
+}
+
+#[test]
 fn keytip_fc_() {
     let mut h = harness(blank());
     sequence(&mut h, "FC", false);
@@ -2751,11 +2759,27 @@ fn keytip_fo_() {
 }
 
 #[test]
+fn keytip_foo_() {
+    let mut h = harness(blank());
+    sequence(&mut h, "FOO", false);
+    assert!(h.state().message.is_none() && h.state().toast.is_none(), "FOO must route to its control without an error box");
+    assert_eq!(h.state().keytips.prefix(), None);
+}
+
+#[test]
 fn keytip_fp_() {
     let mut h = harness(blank());
     sequence(&mut h, "FP", false);
     assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("print"), "FP must show the print page");
     assert_eq!(h.state().keytips.prefix(), Some("FP"));
+}
+
+#[test]
+fn keytip_fpp_() {
+    let mut h = harness(blank());
+    sequence(&mut h, "FPP", false);
+    assert!(h.state().message.is_some(), "FPP must reach its control, which alerts without the service it needs");
+    assert_eq!(h.state().keytips.prefix(), None);
 }
 
 #[test]
@@ -2785,7 +2809,7 @@ fn keytip_q_() {
 
 #[test]
 fn generated_test_count_matches_the_table() {
-    const EXPECTED: usize = 369;
+    const EXPECTED: usize = 372;
     assert_eq!(gridcraft_ui_egui::keytips::keytip_table::SEQUENCES.len(), EXPECTED);
 }
 

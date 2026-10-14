@@ -1174,10 +1174,11 @@ impl SheetApp {
             && (before.is_some() || !egui::Popup::is_any_open(ctx));
         let actions = self.keytips.process(ctx, enabled);
         // Backing out of F to the tab letters, or finishing an F sequence with a command, closes the
-        // File view that Alt, F opened: the command runs on the sheet. A page letter keeps it open.
+        // File view that Alt, F opened: the command runs on the sheet. A page letter, or a page's own
+        // button (Browse… on Open and Save As), keeps it open.
         if self.backstage.is_some()
             && before.is_some()
-            && (self.keytips.prefix() == Some("") || actions.iter().any(|a| !matches!(a, keytips::Action::Page(_))))
+            && (self.keytips.prefix() == Some("") || actions.iter().any(|a| !matches!(a, keytips::Action::Page(_) | keytips::Action::Control(_))))
         {
             self.backstage = None;
         }

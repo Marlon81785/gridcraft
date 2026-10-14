@@ -2473,6 +2473,13 @@
    "excel": "Save As page"
   },
   {
+   "seq": "FAO",
+   "kind": "control",
+   "target": "file.saveAs",
+   "excel": "Save As page: Browse",
+   "note": "the page's Browse… button, so the chosen format is kept"
+  },
+  {
    "seq": "FC",
    "kind": "command",
    "target": "file.close",
@@ -2524,10 +2531,25 @@
    "excel": "Open page"
   },
   {
+   "seq": "FOO",
+   "kind": "control",
+   "target": "file.open",
+   "excel": "Open page: Browse",
+   "note": "the page's Browse… button"
+  },
+  {
    "seq": "FP",
    "kind": "page",
    "target": "print",
    "excel": "Print page"
+  },
+  {
+   "seq": "FPP",
+   "kind": "control",
+   "target": "file.print",
+   "excel": "Print page: Print",
+   "note": "the page's Print button, with the settings chosen there",
+   "alerts": true
   },
   {
    "seq": "FS",

@@ -363,16 +363,19 @@ pub const SEQUENCES: &[(&str, Entry)] = &[
     ("JTS", Entry::Finish(Action::Command("table.style"))),         // Excel: Table: table style
     ("JTV", Entry::Finish(Action::Command("table.summarizePivot"))), // Excel: Table: Summarize with PivotTable; containment(Summarize with PivotTable)
     ("FA", Entry::Page("saveAs")),                                   // Excel: Save As page
-    ("FC", Entry::Finish(Action::Command("file.close"))),            // Excel: Close workbook
-    ("FE", Entry::Page("export")),                                   // Excel: Export page; its letters below still run
-    ("FEA", Entry::Finish(Action::Command("file.exportPdf"))),       // Excel: Export: create PDF/XPS; Export: create PDF/XPS
-    ("FEC", Entry::Finish(Action::Command("file.saveAs"))),          // Excel: Export: change file type; Export: change file type
-    ("FH", Entry::Page("home")),                                     // Excel: Home page
-    ("FI", Entry::Page("info")),                                     // Excel: Info page
-    ("FN", Entry::Page("new")),                                      // Excel: New page
-    ("FO", Entry::Page("open")),                                     // Excel: Open page
-    ("FP", Entry::Page("print")),                                    // Excel: Print page
-    ("FS", Entry::Finish(Action::Command("file.save"))),             // Excel: Save
-    ("FT", Entry::Page("options")),                                  // Excel: Options
-    ("Q", Entry::Finish(Action::Pending("ui.search"))), // pending; Excel: Search / Tell Me; Alt+Q search box does not exist yet (issue #49)
+    ("FAO", Entry::Finish(Action::Control("file.saveAs"))), // Excel: Save As page: Browse; the page's Browse… button, so the chosen format is kept
+    ("FC", Entry::Finish(Action::Command("file.close"))),   // Excel: Close workbook
+    ("FE", Entry::Page("export")),                          // Excel: Export page; its letters below still run
+    ("FEA", Entry::Finish(Action::Command("file.exportPdf"))), // Excel: Export: create PDF/XPS; Export: create PDF/XPS
+    ("FEC", Entry::Finish(Action::Command("file.saveAs"))), // Excel: Export: change file type; Export: change file type
+    ("FH", Entry::Page("home")),                            // Excel: Home page
+    ("FI", Entry::Page("info")),                            // Excel: Info page
+    ("FN", Entry::Page("new")),                             // Excel: New page
+    ("FO", Entry::Page("open")),                            // Excel: Open page
+    ("FOO", Entry::Finish(Action::Control("file.open"))),   // Excel: Open page: Browse; the page's Browse… button
+    ("FP", Entry::Page("print")),                           // Excel: Print page
+    ("FPP", Entry::Finish(Action::Control("file.print"))),  // Excel: Print page: Print; the page's Print button, with the settings chosen there
+    ("FS", Entry::Finish(Action::Command("file.save"))),    // Excel: Save
+    ("FT", Entry::Page("options")),                         // Excel: Options
+    ("Q", Entry::Finish(Action::Pending("ui.search"))),     // pending; Excel: Search / Tell Me; Alt+Q search box does not exist yet (issue #49)
 ];
