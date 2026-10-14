@@ -398,6 +398,17 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
         ui.input_mut(|i| {
             key_none = i.consume_key(egui::Modifiers::NONE, none_key);
             key_more = more_colors && i.consume_key(egui::Modifiers::NONE, egui::Key::M);
+            // The letter's typed text goes too, or the grid behind would start editing with it.
+            if key_none || key_more {
+                let letter = if key_more {
+                    "m"
+                } else if none_key == egui::Key::N {
+                    "n"
+                } else {
+                    "a"
+                };
+                i.events.retain(|e| !matches!(e, egui::Event::Text(t) if t.eq_ignore_ascii_case(letter)));
+            }
         });
         ui.input(|i| {
             dl = i.key_pressed(egui::Key::ArrowLeft);

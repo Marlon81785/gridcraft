@@ -27,6 +27,13 @@ fn press(h: &mut Harness, key: Key, modifiers: Modifiers) {
     h.run_steps(2);
 }
 
+/// A letter key as a keyboard sends it: the key press, its typed text, then the release.
+fn type_letter(h: &mut Harness, key: Key, text: &str) {
+    let ev = |pressed| Event::Key { key, physical_key: None, pressed, repeat: false, modifiers: Modifiers::NONE };
+    h.input_mut().events.extend([ev(true), Event::Text(text.to_string()), ev(false)]);
+    h.run_steps(2);
+}
+
 /// H, H opens the Fill Color palette.
 fn open_fill_palette(h: &mut Harness) {
     for k in [Key::F10, Key::H, Key::H] {
@@ -105,8 +112,9 @@ fn m_opens_more_colors_on_the_cells_colour_and_n_picks_no_fill() {
     h.run_steps(2);
     // H, H, M: More Colors… opens on the cell's fill, shown as Current, so OK keeps it.
     open_fill_palette(&mut h);
-    press(&mut h, Key::M, Modifiers::NONE);
+    type_letter(&mut h, Key::M, "m");
     h.get_by_label("Hex");
+    assert!(h.state().editor.is_none(), "the M does not go into the cell");
     h.get_by_label("Current");
     // Enter is OK.
     press(&mut h, Key::Enter, Modifiers::NONE);
@@ -114,7 +122,7 @@ fn m_opens_more_colors_on_the_cells_colour_and_n_picks_no_fill() {
     assert_eq!(h.state().grid.last_fill, "#3366CC");
     // H, H, N: No Fill.
     open_fill_palette(&mut h);
-    press(&mut h, Key::N, Modifiers::NONE);
+    type_letter(&mut h, Key::N, "n");
     h.run_steps(3);
     let last = h.state().session.journal.iter().rev().find(|(id, _)| id == "home.fillColor").map(|(_, p)| p.clone());
     assert_eq!(last, Some(serde_json::json!({"color": "none"})));
