@@ -106,10 +106,18 @@ pub fn small_button(ui: &mut Ui, icon: Icon, label: &str, tip: &str, dropdown: b
 
 /// A split button: main part runs the default action, the arrow opens a menu.
 /// Returns (main clicked, arrow response).
+/// Width of a [`split_button`]'s main part, left of its arrow.
+pub const SPLIT_MAIN_W: f32 = 25.0;
+
+/// The whole split button around its arrow's response: Excel drops the arrow's menu under it.
+pub fn split_button_rect(arrow: &Response) -> Rect {
+    arrow.rect.with_min_x(arrow.rect.min.x - SPLIT_MAIN_W)
+}
+
 pub fn split_button(ui: &mut Ui, icon: Icon, accent: Option<Color32>, tip: &str) -> (bool, Response) {
     let t = Tokens::get(ui.ctx());
-    let (rect, _) = ui.allocate_exact_size(vec2(38.0, 24.0), Sense::hover());
-    let main = Rect::from_min_size(rect.min, vec2(25.0, 24.0));
+    let (rect, _) = ui.allocate_exact_size(vec2(SPLIT_MAIN_W + 13.0, 24.0), Sense::hover());
+    let main = Rect::from_min_size(rect.min, vec2(SPLIT_MAIN_W, 24.0));
     let arrow = Rect::from_min_max(pos2(main.right(), rect.top()), rect.max);
     let m = ui.interact(main, ui.id().with((tip, "main")), Sense::click());
     let a = ui.interact(arrow, ui.id().with((tip, "arrow")), Sense::click());
@@ -182,11 +190,13 @@ fn recent_colors_id() -> egui::Id {
 struct MoreColors {
     hsva: egui::ecolor::Hsva,
     hex: String,
+    /// The Standard tab (honeycomb) rather than Custom (the picker).
+    standard: bool,
 }
 
 impl MoreColors {
     fn new(rgb: [u8; 3]) -> Self {
-        Self { hsva: egui::ecolor::Hsva::from_srgb(rgb), hex: hex_of(rgb) }
+        Self { hsva: egui::ecolor::Hsva::from_srgb(rgb), hex: hex_of(rgb), standard: true }
     }
 }
 
@@ -204,6 +214,133 @@ pub fn color_palette_fixed(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &s
     palette(ui, theme_colors, none_label, false)
 }
 
+const SWATCH: f32 = 20.0;
+const SWATCH_GAP: f32 = 5.0;
+const TINT_H: f32 = 17.0;
+/// Ten swatches and their gaps: the palette and everything in it keep to this width.
+const GRID_W: f32 = SWATCH * 10.0 + SWATCH_GAP * 9.0;
+
+/// A theme colour followed by the five tints and shades Excel offers under it. They depend on its
+/// lightness, so white and black get greys rather than more white or black (measured in Excel 365:
+/// white -5 to -50 %, black +50 to +5 %, very light -10 to -90 %, very dark +90 to +10 %, everything
+/// else +80, +60, +40, -25, -50 %).
+pub fn theme_tints(base: u32) -> [f64; 6] {
+    let [r, g, b] = [(base >> 16) as u8, (base >> 8) as u8, base as u8].map(|v| v as f64 / 255.0);
+    let l = (r.max(g).max(b) + r.min(g).min(b)) / 2.0;
+    if l >= 0.999 {
+        [0.0, -0.05, -0.15, -0.25, -0.35, -0.5]
+    } else if l <= 0.001 {
+        [0.0, 0.5, 0.35, 0.25, 0.15, 0.05]
+    } else if l > 0.8 {
+        [0.0, -0.1, -0.25, -0.5, -0.75, -0.9]
+    } else if l < 0.2 {
+        [0.0, 0.9, 0.75, 0.5, 0.25, 0.1]
+    } else {
+        [0.0, 0.8, 0.6, 0.4, -0.25, -0.5]
+    }
+}
+
+/// The Standard tab's colours: a honeycomb of hexagons, white at the centre, hues around it growing
+/// stronger and then darker towards the edge (six rings, 127 cells), and a row of greys below.
+/// Returns the clicked colour; `current` gets an outline.
+fn honeycomb(ui: &mut Ui, current: [u8; 3]) -> Option<[u8; 3]> {
+    const RINGS: i32 = 6;
+    const R: f32 = 8.5; // hexagon radius
+    let t = Tokens::get(ui.ctx());
+    let w = R * 3f32.sqrt();
+    let size = vec2(GRID_W, (2 * RINGS + 1) as f32 * R * 1.5 + R * 0.5 + 34.0);
+    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+    let center = pos2(rect.center().x, rect.top() + R + RINGS as f32 * R * 1.5);
+    let mut picked = None;
+    let mut cell = |ui: &mut Ui, at: egui::Pos2, rgb: [u8; 3], id: (i32, i32)| {
+        let pts: Vec<egui::Pos2> = (0..6)
+            .map(|k| {
+                let a = std::f32::consts::FRAC_PI_3 * k as f32 + std::f32::consts::FRAC_PI_6;
+                at + vec2(a.cos(), a.sin()) * (R - 0.6)
+            })
+            .collect();
+        let resp = ui.interact(Rect::from_center_size(at, vec2(w * 0.9, R * 1.6)), ui.id().with(("honeycomb", id)), Sense::click());
+        let fill = Color32::from_rgb(rgb[0], rgb[1], rgb[2]);
+        let stroke = if resp.hovered() || rgb == current { Stroke::new(1.5, t.text) } else { Stroke::NONE };
+        ui.painter().add(egui::Shape::convex_polygon(pts, fill, stroke));
+        if resp.clicked() {
+            picked = Some(rgb);
+        }
+    };
+    for q in -RINGS..=RINGS {
+        for r in (-RINGS).max(-q - RINGS)..=RINGS.min(-q + RINGS) {
+            let ring = q.abs().max(r.abs()).max((q + r).abs());
+            let at = center + vec2(w * (q as f32 + r as f32 / 2.0), R * 1.5 * r as f32);
+            let rgb = if ring == 0 {
+                [255, 255, 255]
+            } else {
+                let d = at - center;
+                // Blues at the top, reds and oranges at the bottom, greens on the left, as Excel lays it out.
+                let hue = (d.y.atan2(d.x) / std::f32::consts::TAU + 0.85).rem_euclid(1.0);
+                // Pale near the centre, full colour in the middle rings, dark at the edge.
+                let k = ring as f32 / RINGS as f32;
+                let value = if k <= 0.5 { 1.0 } else { 1.0 - (k - 0.5) * 1.3 };
+                let sat = (k * 1.9).min(1.0);
+                egui::ecolor::Hsva::new(hue, sat, value, 1.0).to_srgb()
+            };
+            cell(ui, at, rgb, (q, r));
+        }
+    }
+    // Greys from white to black.
+    let y = rect.bottom() - R - 4.0;
+    for i in 0..13 {
+        let v = (255.0 * (1.0 - i as f32 / 12.0)).round() as u8;
+        let at = pos2(rect.left() + R + 2.0 + i as f32 * (GRID_W - 2.0 * R - 4.0) / 12.0, y);
+        cell(ui, at, [v, v, v], (100, i));
+    }
+    picked
+}
+
+fn heading(ui: &mut Ui, text: &str) {
+    ui.add_space(4.0);
+    ui.label(egui::RichText::new(tr(ui, text)).strong());
+}
+
+enum RowIcon {
+    Swatch,
+    Palette,
+}
+
+/// A full-width menu row with an icon and its access letter underlined, like Excel's No Fill and
+/// More Colors… rows.
+fn menu_row(ui: &mut Ui, label: &str, letter: char, icon: RowIcon) -> Response {
+    let t = Tokens::get(ui.ctx());
+    let text = tr(ui, label).to_string();
+    let font = ui.style().text_styles.get(&egui::TextStyle::Button).cloned().unwrap_or_else(|| theme::ui_font(13.0));
+    let mut job = egui::text::LayoutJob::default();
+    let plain = egui::TextFormat { font_id: font, color: t.text, ..Default::default() };
+    match text.char_indices().find(|&(_, c)| c == letter.to_ascii_uppercase()) {
+        Some((i, c)) => {
+            let end = i + c.len_utf8();
+            job.append(&text[..i], 0.0, plain.clone());
+            job.append(&text[i..end], 0.0, egui::TextFormat { underline: Stroke::new(1.0, t.text), ..plain.clone() });
+            job.append(&text[end..], 0.0, plain);
+        }
+        None => job.append(&text, 0.0, plain),
+    }
+    let galley = ui.fonts_mut(|f| f.layout_job(job));
+    let width = GRID_W.max(galley.size().x + 40.0);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::click());
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &text));
+    if response.hovered() {
+        ui.painter().rect_filled(rect, 4.0, t.hover);
+    }
+    let icon_rect = Rect::from_center_size(pos2(rect.left() + 14.0, rect.center().y), vec2(18.0, 18.0));
+    match icon {
+        RowIcon::Swatch => {
+            ui.painter().rect_stroke(icon_rect, 0.0, Stroke::new(1.0, t.separator), StrokeKind::Inside);
+        }
+        RowIcon::Palette => icons::paint(ui.painter(), icon_rect, Icon::Palette, t.text),
+    }
+    ui.painter().galley(pos2(rect.left() + 32.0, rect.center().y - galley.size().y / 2.0), galley, t.text);
+    response
+}
+
 fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors: bool) -> Option<String> {
     let mut picked = None;
     const ROWS: usize = 7; // 6 tint rows + 1 standard row
@@ -212,6 +349,15 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
     let mut cur: Option<(usize, usize)> = ui.data_mut(|d| d.get_temp(pal_id)).unwrap_or(None);
     let more_id = pal_id.with("more");
     let mut more: Option<MoreColors> = ui.data_mut(|d| d.get_temp(more_id)).unwrap_or(None);
+    // More Colors… starts collapsed each time the menu opens (a palette not drawn last pass has
+    // just been opened).
+    let seen_id = pal_id.with("seen");
+    let pass = ui.ctx().cumulative_pass_nr();
+    let last_seen: Option<u64> = ui.data_mut(|d| d.get_temp(seen_id));
+    if last_seen.is_none_or(|p| p + 1 < pass) {
+        more = None;
+    }
+    ui.data_mut(|d| d.insert_temp(seen_id, pass));
     let (mut dl, mut dr, mut du, mut dd, mut ent) = (false, false, false, false, false);
     if more.is_none() {
         ui.input(|i| {
@@ -277,50 +423,70 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
     if ent && let Some((r, c)) = cur {
         picked = Some(if r < ROWS - 1 {
             let base = theme_colors.get(c).copied().unwrap_or(0);
-            theme_hex(base, [0.0f64, 0.8, 0.6, 0.4, -0.25, -0.5][r])
+            theme_hex(base, theme_tints(base)[r])
         } else {
             std_hex[c].to_string()
         });
         ui.data_mut(|d| d.remove_temp::<Option<(usize, usize)>>(pal_id));
     }
-    if ui.button(none_label).clicked() {
+    ui.set_max_width(GRID_W);
+    let t = Tokens::get(ui.ctx());
+    let hover_ring = |ui: &Ui, r: Rect| {
+        ui.painter().rect_stroke(r.expand(1.0), 0.0, Stroke::new(1.0, t.text), StrokeKind::Outside);
+        ui.painter().rect_stroke(r, 0.0, Stroke::new(1.0, t.window), StrokeKind::Inside);
+    };
+    // Excel puts Automatic (font and border colours) above the swatches, No Fill / No Color below.
+    let none_first = !none_label.starts_with("No ");
+    if none_first && menu_row(ui, none_label, 'A', RowIcon::Swatch).clicked() {
         picked = Some("none".to_string());
     }
-    ui.label(egui::RichText::new("Theme Colors").small());
-    let order = [0usize, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let tints = [0.0f64, 0.8, 0.6, 0.4, -0.25, -0.5];
-    egui::Grid::new(ui.id().with("theme_grid")).spacing(vec2(2.0, 2.0)).show(ui, |ui| {
-        for (row, tint) in tints.iter().enumerate() {
-            for (col, &i) in order.iter().enumerate() {
-                let base = theme_colors.get(i).copied().unwrap_or(0);
+    heading(ui, "Theme Colors");
+    // As in Excel: the theme colours on a row of their own, then each colour's five tints and
+    // shades as one unbroken column.
+    let tints: Vec<[f64; 6]> = (0..COLS).map(|i| theme_tints(theme_colors.get(i).copied().unwrap_or(0))).collect();
+    // No space between the tint rows, so each column reads as one strip.
+    let (row_gap, row_min) = (ui.spacing().item_spacing.y, ui.spacing().interact_size.y);
+    ui.spacing_mut().item_spacing.y = 0.0;
+    ui.spacing_mut().interact_size.y = 0.0;
+    for row in 0..6 {
+        if row == 1 {
+            ui.add_space(6.0);
+        }
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = vec2(SWATCH_GAP, 0.0);
+            for (col, tint) in tints.iter().enumerate() {
+                let base = theme_colors.get(col).copied().unwrap_or(0);
                 let rgb = [(base >> 16) as u8, (base >> 8) as u8, base as u8];
-                let c = gridcraft_engine::model::style::apply_tint(rgb, *tint);
-                let col32 = Color32::from_rgb(c[0], c[1], c[2]);
-                let (r, resp) = ui.allocate_exact_size(vec2(16.0, 14.0), Sense::click());
-                ui.painter().rect_filled(r, 1.0, col32);
-                ui.painter().rect_stroke(r, 1.0, Stroke::new(1.0, Color32::from_gray(200)), StrokeKind::Inside);
+                let c = gridcraft_engine::model::style::apply_tint(rgb, tint[row]);
+                let h = if row == 0 { SWATCH } else { TINT_H };
+                let (r, resp) = ui.allocate_exact_size(vec2(SWATCH, h), Sense::click());
+                ui.painter().rect_filled(r, 0.0, Color32::from_rgb(c[0], c[1], c[2]));
+                if row == 0 {
+                    ui.painter().rect_stroke(r, 0.0, Stroke::new(1.0, t.separator), StrokeKind::Inside);
+                }
                 if resp.hovered() || cur == Some((row, col)) {
-                    ui.painter().rect_stroke(r.expand(1.0), 1.0, Stroke::new(1.5, Color32::from_rgb(0xE8, 0x7D, 0x2B)), StrokeKind::Outside);
+                    hover_ring(ui, r);
                 }
                 if resp.clicked() {
-                    picked = Some(theme_hex(base, *tint));
+                    picked = Some(theme_hex(base, tint[row]));
                 }
             }
-            ui.end_row();
-        }
-    });
-    ui.label(egui::RichText::new("Standard Colors").small());
+        });
+    }
+    ui.spacing_mut().item_spacing.y = row_gap;
+    ui.spacing_mut().interact_size.y = row_min;
+    heading(ui, "Standard Colors");
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 2.0;
+        ui.spacing_mut().item_spacing.x = SWATCH_GAP;
         for (col, hex) in std_hex.iter().enumerate() {
             let c = gridcraft_engine::model::Color::from_hex(hex)
                 .and_then(|c| c.resolve(&Default::default()))
                 .map(theme::color32)
                 .unwrap_or(Color32::BLACK);
-            let (r, resp) = ui.allocate_exact_size(vec2(16.0, 14.0), Sense::click());
-            ui.painter().rect_filled(r, 1.0, c);
+            let (r, resp) = ui.allocate_exact_size(vec2(SWATCH, SWATCH), Sense::click());
+            ui.painter().rect_filled(r, 0.0, c);
             if resp.hovered() || cur == Some((ROWS - 1, col)) {
-                ui.painter().rect_stroke(r.expand(1.0), 1.0, Stroke::new(1.5, Color32::from_rgb(0xE8, 0x7D, 0x2B)), StrokeKind::Outside);
+                hover_ring(ui, r);
             }
             if resp.clicked() {
                 picked = Some(hex.to_string());
@@ -330,16 +496,15 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
     // Recent Colors: the custom colours picked below, newest first.
     let mut recent: Vec<String> = ui.ctx().data(|d| d.get_temp(recent_colors_id())).unwrap_or_default();
     if !recent.is_empty() {
-        ui.label(egui::RichText::new("Recent Colors").small());
+        heading(ui, "Recent Colors");
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 2.0;
+            ui.spacing_mut().item_spacing.x = SWATCH_GAP;
             for hex in &recent {
                 let c = parse_hex(hex).map_or(Color32::BLACK, |c| Color32::from_rgb(c[0], c[1], c[2]));
-                let (r, resp) = ui.allocate_exact_size(vec2(16.0, 14.0), Sense::click());
-                ui.painter().rect_filled(r, 1.0, c);
-                ui.painter().rect_stroke(r, 1.0, Stroke::new(1.0, Color32::from_gray(200)), StrokeKind::Inside);
+                let (r, resp) = ui.allocate_exact_size(vec2(SWATCH, SWATCH), Sense::click());
+                ui.painter().rect_filled(r, 0.0, c);
                 if resp.hovered() {
-                    ui.painter().rect_stroke(r.expand(1.0), 1.0, Stroke::new(1.5, Color32::from_rgb(0xE8, 0x7D, 0x2B)), StrokeKind::Outside);
+                    hover_ring(ui, r);
                 }
                 if resp.on_hover_text(hex).clicked() {
                     picked = Some(hex.clone());
@@ -347,19 +512,50 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
             }
         });
     }
-    if more_colors {
-        ui.separator();
+    ui.separator();
+    if !none_first && menu_row(ui, none_label, 'N', RowIcon::Swatch).clicked() {
+        picked = Some("none".to_string());
     }
-    if more_colors && ui.button("More Colors…").clicked() {
-        let start = recent.first().and_then(|h| parse_hex(h)).unwrap_or([0x44, 0x72, 0xC4]);
-        more = Some(MoreColors::new(start));
+    if more_colors {
+        let row = menu_row(ui, "More Colors…", 'M', RowIcon::Palette);
+        let chevron = Rect::from_center_size(pos2(row.rect.right() - 12.0, row.rect.center().y), vec2(10.0, 10.0));
+        let t = Tokens::get(ui.ctx());
+        if more.is_some() {
+            icons::paint(ui.painter(), chevron, Icon::Chevron, t.text_dim);
+        } else {
+            // Pointing right while collapsed: the chevron turned a quarter.
+            let c = chevron.center();
+            ui.painter().line(vec![c + vec2(-1.5, -3.5), c + vec2(2.0, 0.0), c + vec2(-1.5, 3.5)], Stroke::new(1.2, t.text_dim));
+        }
+        if row.clicked() {
+            more = match more {
+                Some(_) => None,
+                None => Some(MoreColors::new(recent.first().and_then(|h| parse_hex(h)).unwrap_or([0x44, 0x72, 0xC4]))),
+            };
+        }
     }
     if let Some(m) = more.as_mut() {
         let mut done = false;
-        // The saturation / value area with its hue bar and egui's red-green-blue boxes, then the hex
-        // box with the new colour beside it.
-        if egui::color_picker::color_picker_hsva_2d(ui, &mut m.hsva, egui::color_picker::Alpha::Opaque) {
-            m.hex = hex_of(m.hsva.to_srgb());
+        ui.horizontal(|ui| {
+            if ui.selectable_label(m.standard, tr(ui, "Standard")).clicked() {
+                m.standard = true;
+            }
+            if ui.selectable_label(!m.standard, tr(ui, "Custom")).clicked() {
+                m.standard = false;
+            }
+        });
+        if m.standard {
+            // A honeycomb of colours around white, then greys, as on Excel's Standard tab.
+            if let Some(c) = honeycomb(ui, m.hsva.to_srgb()) {
+                m.hsva = egui::ecolor::Hsva::from_srgb(c);
+                m.hex = hex_of(c);
+            }
+        } else {
+            ui.spacing_mut().slider_width = GRID_W - 20.0;
+            // The saturation / value area with its hue bar, then the hex box with the new colour.
+            if egui::color_picker::color_picker_hsva_2d(ui, &mut m.hsva, egui::color_picker::Alpha::Opaque) {
+                m.hex = hex_of(m.hsva.to_srgb());
+            }
         }
         ui.horizontal(|ui| {
             let label = ui.label("Hex");

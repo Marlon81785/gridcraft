@@ -670,6 +670,8 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
             }
             let forced = invoke(app, "home.fillColor");
             egui::Popup::menu(&fa)
+                .anchor(crate::widgets::split_button_rect(&fa))
+                .align(egui::RectAlign::BOTTOM_START)
                 .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                 .open_memory(popup_command(forced, fa.clicked()))
                 .show(|ui| {
@@ -690,6 +692,8 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
             }
             let forced = invoke(app, "home.fontColor");
             egui::Popup::menu(&ca)
+                .anchor(crate::widgets::split_button_rect(&ca))
+                .align(egui::RectAlign::BOTTOM_START)
                 .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                 .open_memory(popup_command(forced, ca.clicked()))
                 .show(|ui| {
