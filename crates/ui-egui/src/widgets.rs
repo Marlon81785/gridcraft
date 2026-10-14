@@ -216,18 +216,19 @@ impl MoreColors {
 /// through the swatches and Enter applies; the key events are stripped so the grid behind the popup
 /// does not also react (not while More Colors… is open, whose boxes take the keys).
 pub fn color_palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str) -> Option<String> {
-    palette(ui, theme_colors, none_label, true, None)
+    palette(ui, theme_colors, none_label, true, None, false)
 }
 
 /// [`color_palette`] for a selection whose colour is `current`: More Colors… opens on it.
-pub fn color_palette_current(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, current: Option<[u8; 3]>) -> Option<String> {
-    palette(ui, theme_colors, none_label, true, current)
+/// `badges`: the menu was opened with keytips, so its rows show their letters as badges.
+pub fn color_palette_current(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, current: Option<[u8; 3]>, badges: bool) -> Option<String> {
+    palette(ui, theme_colors, none_label, true, current, badges)
 }
 
 /// [`color_palette`] without More Colors…, for a menu that closes on any click inside it (a sub-menu
 /// of a context menu), where the picker would vanish as soon as it is used. Recent Colors stays.
 pub fn color_palette_fixed(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str) -> Option<String> {
-    palette(ui, theme_colors, none_label, false, None)
+    palette(ui, theme_colors, none_label, false, None, false)
 }
 
 const SWATCH: f32 = 20.0;
@@ -324,7 +325,7 @@ enum RowIcon {
 
 /// A full-width menu row with an icon and its access letter underlined, like Excel's No Fill and
 /// More Colors… rows.
-fn menu_row(ui: &mut Ui, label: &str, letter: char, icon: RowIcon) -> Response {
+fn menu_row(ui: &mut Ui, label: &str, letter: char, icon: RowIcon, badge: bool) -> Response {
     let t = Tokens::get(ui.ctx());
     let text = tr(ui, label).to_string();
     let font = ui.style().text_styles.get(&egui::TextStyle::Button).cloned().unwrap_or_else(|| theme::ui_font(13.0));
@@ -354,10 +355,24 @@ fn menu_row(ui: &mut Ui, label: &str, letter: char, icon: RowIcon) -> Response {
         RowIcon::Palette => icons::paint(ui.painter(), icon_rect, Icon::Palette, t.text),
     }
     ui.painter().galley(pos2(rect.left() + 32.0, rect.center().y - galley.size().y / 2.0), galley, t.text);
+    if badge {
+        keytip_badge(ui, &letter.to_ascii_uppercase().to_string(), icon_rect.right_bottom());
+    }
     response
 }
 
-fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors: bool, current: Option<[u8; 3]>) -> Option<String> {
+/// A keytip badge (the letter to press) centred on `at`, drawn like the ribbon's.
+fn keytip_badge(ui: &Ui, letter: &str, at: egui::Pos2) {
+    let t = Tokens::get(ui.ctx());
+    let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("palette_keytips")));
+    let text = painter.layout_no_wrap(letter.into(), theme::ui_bold(10.5), t.text);
+    let rect = Rect::from_center_size(at, text.size() + vec2(7.0, 3.0));
+    painter.rect_filled(rect, 2.0, t.input_bg);
+    painter.rect_stroke(rect, 2.0, Stroke::new(1.0, t.text_dim), StrokeKind::Inside);
+    painter.galley(rect.min + vec2(3.5, 1.5), text, t.text);
+}
+
+fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors: bool, current: Option<[u8; 3]>, badges: bool) -> Option<String> {
     let mut picked = None;
     const ROWS: usize = 7; // 6 tint rows + 1 standard row
     const COLS: usize = 10;
@@ -377,9 +392,11 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
     let (mut dl, mut dr, mut du, mut dd, mut ent) = (false, false, false, false, false);
     // The rows' access letters, as in Excel's menu: N for No Fill / Automatic, M for More Colors….
     let (mut key_none, mut key_more) = (false, false);
+    // Automatic (font colour) is A; No Fill / No Color is N.
+    let none_key = if none_label.starts_with("No ") { egui::Key::N } else { egui::Key::A };
     if more.is_none() {
         ui.input_mut(|i| {
-            key_none = i.consume_key(egui::Modifiers::NONE, egui::Key::N);
+            key_none = i.consume_key(egui::Modifiers::NONE, none_key);
             key_more = more_colors && i.consume_key(egui::Modifiers::NONE, egui::Key::M);
         });
         ui.input(|i| {
@@ -459,7 +476,7 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
     };
     // Excel puts Automatic (font and border colours) above the swatches, No Fill / No Color below.
     let none_first = !none_label.starts_with("No ");
-    if none_first && menu_row(ui, none_label, 'A', RowIcon::Swatch).clicked() {
+    if none_first && menu_row(ui, none_label, 'A', RowIcon::Swatch, badges && more.is_none()).clicked() {
         picked = Some("none".to_string());
     }
     heading(ui, "Theme Colors");
@@ -535,14 +552,14 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
         });
     }
     ui.separator();
-    if !none_first && menu_row(ui, none_label, 'N', RowIcon::Swatch).clicked() {
+    if !none_first && menu_row(ui, none_label, 'N', RowIcon::Swatch, badges && more.is_none()).clicked() {
         picked = Some("none".to_string());
     }
     if key_none {
         picked = Some("none".to_string());
     }
     if more_colors {
-        let row = menu_row(ui, "More Colors…", 'M', RowIcon::Palette);
+        let row = menu_row(ui, "More Colors…", 'M', RowIcon::Palette, badges && more.is_none());
         let chevron = Rect::from_center_size(pos2(row.rect.right() - 12.0, row.rect.center().y), vec2(10.0, 10.0));
         let t = Tokens::get(ui.ctx());
         if more.is_some() {

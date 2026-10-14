@@ -669,6 +669,12 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                 act(app, "home.fillColor", json!({"color": fill}));
             }
             let forced = invoke(app, "home.fillColor");
+            // Opened with keytips (H, H / H, F, C): the menu's rows show their letters as badges.
+            let kb_id = fa.id.with("keytips");
+            if forced || fa.clicked() {
+                ui.data_mut(|d| d.insert_temp(kb_id, forced));
+            }
+            let badges = ui.data(|d| d.get_temp::<bool>(kb_id)).unwrap_or(false);
             egui::Popup::menu(&fa)
                 .anchor(crate::widgets::split_button_rect(&fa))
                 .align(egui::RectAlign::BOTTOM_START)
@@ -678,7 +684,7 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                     let st = active_style(app);
                     let theme = app.session.active().map(|d| d.wb.theme.clone()).unwrap_or_default();
                     let current = (st.fill.pattern != gridcraft_engine::model::PatternType::None).then(|| st.fill.fg.resolve(&theme)).flatten();
-                    if let Some(c) = color_palette_current(ui, &theme_colors(app), "No Fill", current) {
+                    if let Some(c) = color_palette_current(ui, &theme_colors(app), "No Fill", current, badges) {
                         if c != "none" {
                             app.grid.last_fill = c.clone();
                         }
@@ -694,6 +700,12 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                 act(app, "home.fontColor", json!({"color": fc}));
             }
             let forced = invoke(app, "home.fontColor");
+            // Opened with keytips (H, H / H, F, C): the menu's rows show their letters as badges.
+            let kb_id = ca.id.with("keytips");
+            if forced || ca.clicked() {
+                ui.data_mut(|d| d.insert_temp(kb_id, forced));
+            }
+            let badges = ui.data(|d| d.get_temp::<bool>(kb_id)).unwrap_or(false);
             egui::Popup::menu(&ca)
                 .anchor(crate::widgets::split_button_rect(&ca))
                 .align(egui::RectAlign::BOTTOM_START)
@@ -703,7 +715,7 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                     let st = active_style(app);
                     let theme = app.session.active().map(|d| d.wb.theme.clone()).unwrap_or_default();
                     let current = st.font.color.resolve(&theme);
-                    if let Some(c) = color_palette_current(ui, &theme_colors(app), "Automatic", current) {
+                    if let Some(c) = color_palette_current(ui, &theme_colors(app), "Automatic", current, badges) {
                         if c != "none" {
                             app.grid.last_font_color = c.clone();
                         }
