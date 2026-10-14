@@ -108,8 +108,9 @@ fn m_opens_more_colors_on_the_cells_colour_and_n_picks_no_fill() {
     press(&mut h, Key::M, Modifiers::NONE);
     h.get_by_label("Hex");
     h.get_by_label("Current");
-    h.get_by_label("  OK  ").click();
-    h.run_steps(4);
+    // Enter is OK.
+    press(&mut h, Key::Enter, Modifiers::NONE);
+    h.run_steps(2);
     assert_eq!(h.state().grid.last_fill, "#3366CC");
     // H, H, N: No Fill.
     open_fill_palette(&mut h);

@@ -625,7 +625,10 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
             }
         });
         ui.horizontal(|ui| {
-            if ui.button("  OK  ").clicked() {
+            // Enter is OK, as in Excel's dialog, while the hex box holds a colour (a half-typed
+            // one is not applied).
+            let enter = parse_hex(&m.hex).is_some() && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter));
+            if ui.button("  OK  ").clicked() || enter {
                 // A hex still being typed that is not a colour falls back to the picker's.
                 let c = parse_hex(&m.hex).unwrap_or_else(|| m.hsva.to_srgb());
                 let hex = hex_of(c);
