@@ -151,23 +151,33 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
             }
             ui.add_space(10.0);
             for page in [Page::Home, Page::New, Page::Open] {
-                if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
+                let item = nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel);
+                nav_keytip(app, ui, &item, page.id());
+                if item.clicked() {
                     out.page = Some(page);
                 }
             }
             nav_separator(ui, nav_text);
-            if nav_item(ui, Page::Info.icon(), lang.tr("Info"), bs.page == Page::Info, nav_text, nav_sel).clicked() {
+            let item = nav_item(ui, Page::Info.icon(), lang.tr("Info"), bs.page == Page::Info, nav_text, nav_sel);
+            nav_keytip(app, ui, &item, Page::Info.id());
+            if item.clicked() {
                 out.page = Some(Page::Info);
             }
-            if nav_item(ui, Icon::Save, lang.tr("Save"), false, nav_text, nav_sel).clicked() {
+            let item = nav_item(ui, Icon::Save, lang.tr("Save"), false, nav_text, nav_sel);
+            nav_keytip(app, ui, &item, "file.save");
+            if item.clicked() {
                 save(app, &mut out);
             }
             for page in [Page::SaveAs, Page::Print, Page::Export] {
-                if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
+                let item = nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel);
+                nav_keytip(app, ui, &item, page.id());
+                if item.clicked() {
                     out.page = Some(page);
                 }
             }
-            if nav_item(ui, Icon::Close, lang.tr("Close"), false, nav_text, nav_sel).clicked() {
+            let item = nav_item(ui, Icon::Close, lang.tr("Close"), false, nav_text, nav_sel);
+            nav_keytip(app, ui, &item, "file.close");
+            if item.clicked() {
                 // A cell still being edited is part of the workbook; Close keeps the unsaved prompt.
                 if app.commit_edit(0, 0, false, false) {
                     app.run_or_alert("file.close", json!({}));
@@ -175,7 +185,9 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
                 }
             }
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                if nav_item(ui, Page::Options.icon(), lang.tr("Options"), bs.page == Page::Options, nav_text, nav_sel).clicked() {
+                let item = nav_item(ui, Page::Options.icon(), lang.tr("Options"), bs.page == Page::Options, nav_text, nav_sel);
+                nav_keytip(app, ui, &item, Page::Options.id());
+                if item.clicked() {
                     out.page = Some(Page::Options);
                 }
             });
@@ -233,6 +245,13 @@ fn save(app: &mut SheetApp, out: &mut Outcome) {
 }
 
 // ---------------------------------------------------------------- navigation
+
+/// The page list's keytip badge (Alt, F): beside the icon, as Excel places them.
+fn nav_keytip(app: &SheetApp, ui: &Ui, item: &egui::Response, target: &str) {
+    if let Some(sequence) = crate::keytips::keytip_table::file_sequence(target) {
+        crate::ribbon::keytip(app, ui, sequence, egui::pos2(item.rect.left() + 26.0, item.rect.bottom() - 8.0));
+    }
+}
 
 fn nav_item(ui: &mut Ui, icon: Icon, label: &str, selected: bool, text: Color32, sel: Color32) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(NAV_W, 38.0), Sense::click());

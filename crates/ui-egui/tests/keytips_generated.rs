@@ -2685,7 +2685,8 @@ fn keytip_jtv_() {
 fn keytip_fa_() {
     let mut h = harness(blank());
     sequence(&mut h, "FA", false);
-    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.saveAs"), "FA must journal file.saveAs");
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("saveAs"), "FA must show the saveAs page");
+    assert_eq!(h.state().keytips.prefix(), Some("FA"));
 }
 
 #[test]
@@ -2693,6 +2694,14 @@ fn keytip_fc_() {
     let mut h = harness(blank());
     sequence(&mut h, "FC", false);
     assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.close"), "FC must journal file.close");
+}
+
+#[test]
+fn keytip_fe_() {
+    let mut h = harness(blank());
+    sequence(&mut h, "FE", false);
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("export"), "FE must show the export page");
+    assert_eq!(h.state().keytips.prefix(), Some("FE"));
 }
 
 #[test]
@@ -2710,31 +2719,58 @@ fn keytip_fec_() {
 }
 
 #[test]
+fn keytip_fh_() {
+    let mut h = harness(blank());
+    sequence(&mut h, "FH", false);
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("home"), "FH must show the home page");
+    assert_eq!(h.state().keytips.prefix(), Some("FH"));
+}
+
+#[test]
 fn keytip_fi_() {
     let mut h = harness(blank());
     sequence(&mut h, "FI", false);
-    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.properties"), "FI must journal file.properties");
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("info"), "FI must show the info page");
+    assert_eq!(h.state().keytips.prefix(), Some("FI"));
 }
 
 #[test]
 fn keytip_fn_() {
     let mut h = harness(blank());
     sequence(&mut h, "FN", false);
-    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.new"), "FN must journal file.new");
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("new"), "FN must show the new page");
+    assert_eq!(h.state().keytips.prefix(), Some("FN"));
 }
 
 #[test]
 fn keytip_fo_() {
     let mut h = harness(blank());
     sequence(&mut h, "FO", false);
-    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.open"), "FO must journal file.open");
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("open"), "FO must show the open page");
+    assert_eq!(h.state().keytips.prefix(), Some("FO"));
 }
 
 #[test]
 fn keytip_fp_() {
     let mut h = harness(blank());
     sequence(&mut h, "FP", false);
-    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.print"), "FP must journal file.print");
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("print"), "FP must show the print page");
+    assert_eq!(h.state().keytips.prefix(), Some("FP"));
+}
+
+#[test]
+fn keytip_fs_() {
+    let mut h = harness(blank());
+    sequence(&mut h, "FS", false);
+    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.save"), "FS must journal file.save");
+}
+
+#[test]
+fn keytip_ft_() {
+    let mut h = harness(blank());
+    sequence(&mut h, "FT", false);
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some("options"), "FT must show the options page");
+    assert_eq!(h.state().keytips.prefix(), Some("FT"));
 }
 
 #[test]
@@ -2749,7 +2785,7 @@ fn keytip_q_() {
 
 #[test]
 fn generated_test_count_matches_the_table() {
-    const EXPECTED: usize = 365;
+    const EXPECTED: usize = 369;
     assert_eq!(gridcraft_ui_egui::keytips::keytip_table::SEQUENCES.len(), EXPECTED);
 }
 

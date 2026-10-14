@@ -17,6 +17,8 @@ pub use generated::SEQUENCES;
 pub enum Entry {
     /// Switch to this ribbon tab and keep the prefix: the tab's own badges take over.
     Tab(&'static str),
+    /// Show this File view page (its `ui.backstage` id) and keep the prefix.
+    Page(&'static str),
     /// Keep the prefix: this sequence is a group-level badge; deeper sequences finish it.
     Continue,
     /// Complete the sequence: run the action and clear the prefix.
@@ -42,6 +44,14 @@ pub fn tab_sequence(tab_name: &str) -> Option<&'static str> {
     })
 }
 
+/// The File view letter for a page (`ui.backstage` id) or a command run from its page list.
+pub fn file_sequence(target: &str) -> Option<&'static str> {
+    SEQUENCES.iter().find_map(|(seq, entry)| match entry {
+        Entry::Page(id) | Entry::Finish(Action::Command(id)) if *id == target && seq.len() == 2 && seq.starts_with('F') => Some(*seq),
+        _ => None,
+    })
+}
+
 /// True if `seq` is a group level: an explicit Continue entry, or an implicit level that only
 /// exists because deeper sequences start with it (like "J" before Draw's "JI").
 pub fn is_group_level(seq: &str) -> bool {
@@ -52,7 +62,7 @@ fn matches_target(action: &Action, target: &str) -> bool {
     match action {
         Action::Command(id) | Action::Pending(id) | Action::Control(id) => *id == target,
         Action::Dialog(name) => format!("dialog:{name}") == target,
-        Action::Tab(_) => false,
+        Action::Tab(_) | Action::Page(_) => false,
     }
 }
 

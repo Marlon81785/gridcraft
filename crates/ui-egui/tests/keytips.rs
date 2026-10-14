@@ -329,10 +329,31 @@ fn f_opens_the_file_view_and_its_letters_still_run() {
     assert_eq!(h.state().keytips.prefix(), Some(""));
     letter(&mut h, Key::F, false);
     assert!(h.state().backstage.is_some());
-    letter(&mut h, Key::N, false);
-    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.new"), "F, N still runs New");
+    letter(&mut h, Key::S, false);
+    assert!(h.state().session.journal.iter().any(|(id, _)| id == "file.save"), "F, S runs Save");
     assert!(h.state().backstage.is_none(), "the command runs on the sheet, as before the view opened");
     assert_eq!(h.state().keytips.prefix(), None);
+}
+
+#[test]
+fn file_letters_show_their_pages_and_esc_steps_back() {
+    use gridcraft_ui_egui::backstage::Page;
+    let mut h = harness(blank());
+    // As in Excel, F, O shows the Open page rather than running Open, and its level stays active.
+    sequence(&mut h, &[Key::F, Key::O], false);
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page), Some(Page::Open));
+    assert_eq!(h.state().keytips.prefix(), Some("FO"));
+    assert!(h.state().session.journal.iter().all(|(id, _)| id != "file.open"), "F, O runs nothing");
+    // Esc returns to the File letters with the page still showing; another letter switches page.
+    key(&mut h, Key::Escape);
+    assert_eq!(h.state().keytips.prefix(), Some("F"));
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page), Some(Page::Open));
+    letter(&mut h, Key::A, false);
+    assert_eq!(h.state().backstage.as_ref().map(|b| b.page), Some(Page::SaveAs));
+    key(&mut h, Key::Escape);
+    key(&mut h, Key::Escape);
+    assert!(h.state().backstage.is_none(), "Esc at the File letters closes the view");
+    assert_eq!(h.state().keytips.prefix(), Some(""));
 }
 
 #[test]

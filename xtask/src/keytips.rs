@@ -11,6 +11,8 @@ use std::fs;
 use std::path::Path;
 
 /// "File" is not a ribbon tab: its sequence opens the Backstage view.
+/// The File view pages a `page` entry can show (their `ui.backstage` ids).
+const PAGES: &[&str] = &["home", "new", "open", "info", "saveAs", "print", "export", "options"];
 const TABS: &[&str] = &["File", "Home", "Insert", "Draw", "Page Layout", "Formulas", "Data", "Review", "View", "Automate"];
 
 /// Commands whose empty-params behaviour depends on the host machine (e.g. the
@@ -139,6 +141,11 @@ fn parse_and_probe(source: &str) -> Result<(Vec<Entry>, Probe), String> {
                     return Err(format!("{at}: tab target {target:?} is not one of {TABS:?}"));
                 }
             }
+            "page" => {
+                if !PAGES.contains(&target.as_str()) {
+                    return Err(format!("{at}: page target {target:?} is not one of {PAGES:?}"));
+                }
+            }
             "command" | "dialog" | "control" => {
                 if target.is_empty() {
                     return Err(format!("{at}: {kind} needs a `target`"));
@@ -219,6 +226,7 @@ fn render_table(entries: &[Entry]) -> String {
     for e in entries {
         let value = match e.kind.as_str() {
             "tab" => format!("Entry::Tab({:?})", e.target),
+            "page" => format!("Entry::Page({:?})", e.target),
             "command" if e.pending => format!("Entry::Finish(Action::Pending({:?}))", e.target),
             "command" => format!("Entry::Finish(Action::Command({:?}))", e.target),
             "dialog" => format!("Entry::Finish(Action::Dialog({:?}))", e.target),
@@ -264,6 +272,11 @@ fn render_tests(entries: &[Entry], probe: &Probe) -> String {
             "tab" if e.target == "File" => format!(
                 "sequence(&mut h, {seq:?}, false);\n    assert!(h.state().backstage.is_some(), \"{seq} must open the File view\");\n    assert_eq!(h.state().keytips.prefix(), Some({seq:?}));",
                 seq = e.seq,
+            ),
+            "page" => format!(
+                "sequence(&mut h, {seq:?}, false);\n    assert_eq!(h.state().backstage.as_ref().map(|b| b.page.id()), Some({page:?}), \"{seq} must show the {page} page\");\n    assert_eq!(h.state().keytips.prefix(), Some({seq:?}));",
+                seq = e.seq,
+                page = e.target,
             ),
             "tab" => format!(
                 "sequence(&mut h, {seq:?}, false);\n    assert_eq!(h.state().ui.ribbon_tab, {tab:?}, \"{seq} must switch to the {tab} tab\");",

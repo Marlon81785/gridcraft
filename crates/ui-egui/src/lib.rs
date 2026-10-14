@@ -1173,9 +1173,12 @@ impl SheetApp {
             && self.grid.renaming_tab.is_none()
             && (before.is_some() || !egui::Popup::is_any_open(ctx));
         let actions = self.keytips.process(ctx, enabled);
-        // Backing out of F to the tab letters, or finishing an F sequence, closes the File view
-        // that Alt, F opened: the command runs on the sheet, as it did without the view.
-        if self.backstage.is_some() && before.is_some() && (self.keytips.prefix() == Some("") || !actions.is_empty()) {
+        // Backing out of F to the tab letters, or finishing an F sequence with a command, closes the
+        // File view that Alt, F opened: the command runs on the sheet. A page letter keeps it open.
+        if self.backstage.is_some()
+            && before.is_some()
+            && (self.keytips.prefix() == Some("") || actions.iter().any(|a| !matches!(a, keytips::Action::Page(_))))
+        {
             self.backstage = None;
         }
         if before.is_some() && before.as_deref() != self.keytips.prefix() && !ctx.input(|i| i.pointer.any_pressed()) {
@@ -1185,6 +1188,11 @@ impl SheetApp {
         for action in actions {
             match action {
                 keytips::Action::Tab("File") => self.open_backstage(backstage::Page::Home),
+                keytips::Action::Page(id) => {
+                    if let Some(page) = backstage::Page::parse(id) {
+                        self.open_backstage(page);
+                    }
+                }
                 keytips::Action::Tab(tab) => {
                     self.run_or_alert("ui.ribbonTab", json!({"tab": tab}));
                     self.ui.ribbon_collapsed = false;

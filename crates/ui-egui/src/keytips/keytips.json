@@ -16,7 +16,7 @@
    "kind": "tab",
    "target": "File",
    "excel": "File tab (Backstage view)",
-   "note": "Opens the File view on Home; its letters below still run their commands."
+   "note": "Opens the File view on Home; its letters show a page, or run Save and Close."
   },
   {
    "seq": "H",
@@ -2468,16 +2468,22 @@
   },
   {
    "seq": "FA",
-   "kind": "command",
-   "excel": "Save / Save As page",
-   "note": "fires immediately in Excel; deeper aliases dropped as unreachable",
-   "target": "file.saveAs"
+   "kind": "page",
+   "target": "saveAs",
+   "excel": "Save As page"
   },
   {
    "seq": "FC",
    "kind": "command",
    "target": "file.close",
    "excel": "Close workbook"
+  },
+  {
+   "seq": "FE",
+   "kind": "page",
+   "target": "export",
+   "excel": "Export page",
+   "note": "its letters below still run"
   },
   {
    "seq": "FEA",
@@ -2494,32 +2500,46 @@
    "note": "Export: change file type"
   },
   {
+   "seq": "FH",
+   "kind": "page",
+   "target": "home",
+   "excel": "Home page"
+  },
+  {
    "seq": "FI",
-   "kind": "command",
-   "excel": "Info page",
-   "note": "fires immediately in Excel; deeper aliases dropped as unreachable",
-   "target": "file.properties"
+   "kind": "page",
+   "target": "info",
+   "excel": "Info page"
   },
   {
    "seq": "FN",
-   "kind": "command",
-   "target": "file.new",
-   "excel": "New page",
-   "note": "New page"
+   "kind": "page",
+   "target": "new",
+   "excel": "New page"
   },
   {
    "seq": "FO",
-   "kind": "command",
-   "excel": "Open page",
-   "note": "fires immediately in Excel; deeper aliases dropped as unreachable",
-   "target": "file.open"
+   "kind": "page",
+   "target": "open",
+   "excel": "Open page"
   },
   {
    "seq": "FP",
+   "kind": "page",
+   "target": "print",
+   "excel": "Print page"
+  },
+  {
+   "seq": "FS",
    "kind": "command",
-   "target": "file.print",
-   "excel": "Print page",
-   "note": "containment(Print)"
+   "target": "file.save",
+   "excel": "Save"
+  },
+  {
+   "seq": "FT",
+   "kind": "page",
+   "target": "options",
+   "excel": "Options"
   },
   {
    "seq": "Q",

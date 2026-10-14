@@ -326,7 +326,7 @@ fn act(app: &mut SheetApp, id: &str, params: serde_json::Value) {
 }
 
 /// Keytips are painted, not focusable widgets: the grid retains keyboard focus.
-fn keytip(app: &SheetApp, ui: &Ui, sequence: &str, at: egui::Pos2) {
+pub(crate) fn keytip(app: &SheetApp, ui: &Ui, sequence: &str, at: egui::Pos2) {
     let Some(rest) = app.keytips.prefix().and_then(|prefix| sequence.strip_prefix(prefix)).filter(|s| !s.is_empty()) else { return };
     let t = Tokens::get(ui.ctx());
     let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("ribbon_keytips"))).with_clip_rect(ui.clip_rect());

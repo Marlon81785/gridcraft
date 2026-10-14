@@ -18,6 +18,8 @@ pub enum Action {
     /// handler (which carries the right params), instead of firing the engine command with
     /// empty params.
     Control(&'static str),
+    /// Show this page of the File view (its `ui.backstage` id), as Excel's F letters do.
+    Page(&'static str),
 }
 
 #[derive(Default)]
@@ -114,6 +116,12 @@ impl KeyTips {
                                     // finishes and clears the prefix.
                                     self.prefix = keytip_table::has_deeper(&next).then_some(next);
                                     actions.push(Action::Tab(tab));
+                                }
+                                // A File view page stays an active level, as in Excel: Esc
+                                // returns to the File letters with the view still open.
+                                Some(keytip_table::Entry::Page(page)) => {
+                                    self.prefix = Some(next);
+                                    actions.push(Action::Page(page));
                                 }
                                 Some(keytip_table::Entry::Continue) => self.prefix = Some(next),
                                 Some(keytip_table::Entry::Finish(action)) => self.finish(action, &mut actions),

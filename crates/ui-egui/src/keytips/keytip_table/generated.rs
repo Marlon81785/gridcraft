@@ -6,7 +6,7 @@ use super::{Action, Entry};
 /// whenever a pressed letter starts a deeper sequence, so only terminal entries are
 /// listed here. See keytip_table.rs for the helpers that read this table.
 pub const SEQUENCES: &[(&str, Entry)] = &[
-    ("F", Entry::Tab("File")), // Excel: File tab (Backstage view); Opens the File view on Home; its letters below still run their commands.
+    ("F", Entry::Tab("File")), // Excel: File tab (Backstage view); Opens the File view on Home; its letters show a page, or run Save and Close.
     ("H", Entry::Tab("Home")),
     ("N", Entry::Tab("Insert")),
     ("JI", Entry::Tab("Draw")), // Two-letter unit. Deeper Draw letters differ between Excel and GridCraft; left blank for future contributors.
@@ -362,13 +362,17 @@ pub const SEQUENCES: &[(&str, Entry)] = &[
     ("JCC", Entry::Finish(Action::Command("chart.changeType"))),    // Excel: Chart: Change Chart Type; containment(Change Chart Type)
     ("JTS", Entry::Finish(Action::Command("table.style"))),         // Excel: Table: table style
     ("JTV", Entry::Finish(Action::Command("table.summarizePivot"))), // Excel: Table: Summarize with PivotTable; containment(Summarize with PivotTable)
-    ("FA", Entry::Finish(Action::Command("file.saveAs"))), // Excel: Save / Save As page; fires immediately in Excel; deeper aliases dropped as unreachable
-    ("FC", Entry::Finish(Action::Command("file.close"))),  // Excel: Close workbook
-    ("FEA", Entry::Finish(Action::Command("file.exportPdf"))), // Excel: Export: create PDF/XPS; Export: create PDF/XPS
-    ("FEC", Entry::Finish(Action::Command("file.saveAs"))), // Excel: Export: change file type; Export: change file type
-    ("FI", Entry::Finish(Action::Command("file.properties"))), // Excel: Info page; fires immediately in Excel; deeper aliases dropped as unreachable
-    ("FN", Entry::Finish(Action::Command("file.new"))),    // Excel: New page; New page
-    ("FO", Entry::Finish(Action::Command("file.open"))),   // Excel: Open page; fires immediately in Excel; deeper aliases dropped as unreachable
-    ("FP", Entry::Finish(Action::Command("file.print"))),  // Excel: Print page; containment(Print)
-    ("Q", Entry::Finish(Action::Pending("ui.search"))),    // pending; Excel: Search / Tell Me; Alt+Q search box does not exist yet (issue #49)
+    ("FA", Entry::Page("saveAs")),                                   // Excel: Save As page
+    ("FC", Entry::Finish(Action::Command("file.close"))),            // Excel: Close workbook
+    ("FE", Entry::Page("export")),                                   // Excel: Export page; its letters below still run
+    ("FEA", Entry::Finish(Action::Command("file.exportPdf"))),       // Excel: Export: create PDF/XPS; Export: create PDF/XPS
+    ("FEC", Entry::Finish(Action::Command("file.saveAs"))),          // Excel: Export: change file type; Export: change file type
+    ("FH", Entry::Page("home")),                                     // Excel: Home page
+    ("FI", Entry::Page("info")),                                     // Excel: Info page
+    ("FN", Entry::Page("new")),                                      // Excel: New page
+    ("FO", Entry::Page("open")),                                     // Excel: Open page
+    ("FP", Entry::Page("print")),                                    // Excel: Print page
+    ("FS", Entry::Finish(Action::Command("file.save"))),             // Excel: Save
+    ("FT", Entry::Page("options")),                                  // Excel: Options
+    ("Q", Entry::Finish(Action::Pending("ui.search"))), // pending; Excel: Search / Tell Me; Alt+Q search box does not exist yet (issue #49)
 ];
