@@ -97,3 +97,24 @@ fn the_font_colour_menu_has_them_too_and_shares_the_recent_colours() {
     h.get_by_label("Recent Colors");
     h.get_by_label("More Colors…");
 }
+
+#[test]
+fn m_opens_more_colors_on_the_cells_colour_and_n_picks_no_fill() {
+    let mut h = harness();
+    let _ = h.state_mut().run("home.fillColor", serde_json::json!({"color": "#3366CC"}));
+    h.run_steps(2);
+    // H, H, M: More Colors… opens on the cell's fill, shown as Current, so OK keeps it.
+    open_fill_palette(&mut h);
+    press(&mut h, Key::M, Modifiers::NONE);
+    h.get_by_label("Hex");
+    h.get_by_label("Current");
+    h.get_by_label("  OK  ").click();
+    h.run_steps(4);
+    assert_eq!(h.state().grid.last_fill, "#3366CC");
+    // H, H, N: No Fill.
+    open_fill_palette(&mut h);
+    press(&mut h, Key::N, Modifiers::NONE);
+    h.run_steps(3);
+    let last = h.state().session.journal.iter().rev().find(|(id, _)| id == "home.fillColor").map(|(_, p)| p.clone());
+    assert_eq!(last, Some(serde_json::json!({"color": "none"})));
+}

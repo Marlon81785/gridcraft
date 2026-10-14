@@ -190,13 +190,24 @@ fn recent_colors_id() -> egui::Id {
 struct MoreColors {
     hsva: egui::ecolor::Hsva,
     hex: String,
+    /// The selection's colour when the picker opened (Excel's Current swatch), if it has one.
+    current: Option<[u8; 3]>,
     /// The Standard tab (honeycomb) rather than Custom (the picker).
     standard: bool,
 }
 
 impl MoreColors {
     fn new(rgb: [u8; 3]) -> Self {
-        Self { hsva: egui::ecolor::Hsva::from_srgb(rgb), hex: hex_of(rgb), standard: true }
+        Self { hsva: egui::ecolor::Hsva::from_srgb(rgb), hex: hex_of(rgb), current: None, standard: true }
+    }
+
+    /// Opens on the selection's colour, as Excel does, so it can be read or adjusted; on the
+    /// Custom tab, where its hex shows. Without one, on the last custom colour.
+    fn open(current: Option<[u8; 3]>, recent: &[String]) -> Self {
+        match current {
+            Some(c) => Self { current: Some(c), standard: false, ..Self::new(c) },
+            None => Self::new(recent.first().and_then(|h| parse_hex(h)).unwrap_or([0x44, 0x72, 0xC4])),
+        }
     }
 }
 
@@ -205,13 +216,18 @@ impl MoreColors {
 /// through the swatches and Enter applies; the key events are stripped so the grid behind the popup
 /// does not also react (not while More Colors… is open, whose boxes take the keys).
 pub fn color_palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str) -> Option<String> {
-    palette(ui, theme_colors, none_label, true)
+    palette(ui, theme_colors, none_label, true, None)
+}
+
+/// [`color_palette`] for a selection whose colour is `current`: More Colors… opens on it.
+pub fn color_palette_current(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, current: Option<[u8; 3]>) -> Option<String> {
+    palette(ui, theme_colors, none_label, true, current)
 }
 
 /// [`color_palette`] without More Colors…, for a menu that closes on any click inside it (a sub-menu
 /// of a context menu), where the picker would vanish as soon as it is used. Recent Colors stays.
 pub fn color_palette_fixed(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str) -> Option<String> {
-    palette(ui, theme_colors, none_label, false)
+    palette(ui, theme_colors, none_label, false, None)
 }
 
 const SWATCH: f32 = 20.0;
@@ -341,7 +357,7 @@ fn menu_row(ui: &mut Ui, label: &str, letter: char, icon: RowIcon) -> Response {
     response
 }
 
-fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors: bool) -> Option<String> {
+fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors: bool, current: Option<[u8; 3]>) -> Option<String> {
     let mut picked = None;
     const ROWS: usize = 7; // 6 tint rows + 1 standard row
     const COLS: usize = 10;
@@ -359,7 +375,13 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
     }
     ui.data_mut(|d| d.insert_temp(seen_id, pass));
     let (mut dl, mut dr, mut du, mut dd, mut ent) = (false, false, false, false, false);
+    // The rows' access letters, as in Excel's menu: N for No Fill / Automatic, M for More Colors….
+    let (mut key_none, mut key_more) = (false, false);
     if more.is_none() {
+        ui.input_mut(|i| {
+            key_none = i.consume_key(egui::Modifiers::NONE, egui::Key::N);
+            key_more = more_colors && i.consume_key(egui::Modifiers::NONE, egui::Key::M);
+        });
         ui.input(|i| {
             dl = i.key_pressed(egui::Key::ArrowLeft);
             dr = i.key_pressed(egui::Key::ArrowRight);
@@ -516,6 +538,9 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
     if !none_first && menu_row(ui, none_label, 'N', RowIcon::Swatch).clicked() {
         picked = Some("none".to_string());
     }
+    if key_none {
+        picked = Some("none".to_string());
+    }
     if more_colors {
         let row = menu_row(ui, "More Colors…", 'M', RowIcon::Palette);
         let chevron = Rect::from_center_size(pos2(row.rect.right() - 12.0, row.rect.center().y), vec2(10.0, 10.0));
@@ -527,10 +552,10 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
             let c = chevron.center();
             ui.painter().line(vec![c + vec2(-1.5, -3.5), c + vec2(2.0, 0.0), c + vec2(-1.5, 3.5)], Stroke::new(1.2, t.text_dim));
         }
-        if row.clicked() {
+        if row.clicked() || key_more {
             more = match more {
                 Some(_) => None,
-                None => Some(MoreColors::new(recent.first().and_then(|h| parse_hex(h)).unwrap_or([0x44, 0x72, 0xC4]))),
+                None => Some(MoreColors::open(current, &recent)),
             };
         }
     }
@@ -570,6 +595,17 @@ fn palette(ui: &mut Ui, theme_colors: &[u32; 12], none_label: &str, more_colors:
             ui.painter().rect_filled(sw, 1.0, Color32::from_rgb(c[0], c[1], c[2]));
             ui.painter().rect_stroke(sw, 1.0, Stroke::new(1.0, Color32::from_gray(160)), StrokeKind::Inside);
             ui.label(egui::RichText::new("New").small());
+            if let Some(c) = m.current {
+                let (sw, resp) = ui.allocate_exact_size(vec2(36.0, 18.0), Sense::click());
+                ui.painter().rect_filled(sw, 1.0, Color32::from_rgb(c[0], c[1], c[2]));
+                ui.painter().rect_stroke(sw, 1.0, Stroke::new(1.0, Color32::from_gray(160)), StrokeKind::Inside);
+                // Clicking Current goes back to it after trying others.
+                if resp.on_hover_text(hex_of(c)).clicked() {
+                    m.hsva = egui::ecolor::Hsva::from_srgb(c);
+                    m.hex = hex_of(c);
+                }
+                ui.label(egui::RichText::new("Current").small());
+            }
         });
         ui.horizontal(|ui| {
             if ui.button("  OK  ").clicked() {

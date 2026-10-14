@@ -8,7 +8,7 @@ use crate::SheetApp;
 use crate::icons::{self, Icon};
 use crate::keytips::keytip_table;
 use crate::theme::{self, Tokens};
-use crate::widgets::{big_button, color_palette, icon_button, small_button, split_button, toggle_button};
+use crate::widgets::{big_button, color_palette_current, icon_button, small_button, split_button, toggle_button};
 
 pub const TABS: &[&str] = &["Home", "Insert", "Draw", "Page Layout", "Formulas", "Data", "Review", "View", "Automate"];
 
@@ -675,7 +675,10 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                 .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                 .open_memory(popup_command(forced, fa.clicked()))
                 .show(|ui| {
-                    if let Some(c) = color_palette(ui, &theme_colors(app), "No Fill") {
+                    let st = active_style(app);
+                    let theme = app.session.active().map(|d| d.wb.theme.clone()).unwrap_or_default();
+                    let current = (st.fill.pattern != gridcraft_engine::model::PatternType::None).then(|| st.fill.fg.resolve(&theme)).flatten();
+                    if let Some(c) = color_palette_current(ui, &theme_colors(app), "No Fill", current) {
                         if c != "none" {
                             app.grid.last_fill = c.clone();
                         }
@@ -697,7 +700,10 @@ fn home(app: &mut SheetApp, ui: &mut Ui) {
                 .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                 .open_memory(popup_command(forced, ca.clicked()))
                 .show(|ui| {
-                    if let Some(c) = color_palette(ui, &theme_colors(app), "Automatic") {
+                    let st = active_style(app);
+                    let theme = app.session.active().map(|d| d.wb.theme.clone()).unwrap_or_default();
+                    let current = st.font.color.resolve(&theme);
+                    if let Some(c) = color_palette_current(ui, &theme_colors(app), "Automatic", current) {
                         if c != "none" {
                             app.grid.last_font_color = c.clone();
                         }
