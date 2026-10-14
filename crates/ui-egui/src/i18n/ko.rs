@@ -344,7 +344,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Export" => "내보내기",
         "Close" => "닫기",
         "Options" => "옵션",
-        "Account" => "계정",
+        "About" => "프로그램 정보",
         "Product Information" => "제품 정보",
         "About GridCraft" => "GridCraft 정보",
         "Version" => "버전",

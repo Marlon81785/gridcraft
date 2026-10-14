@@ -258,7 +258,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Export" => "Exportovat",
         "Close" => "Zavřít",
         "Options" => "Možnosti",
-        "Account" => "Účet",
+        "About" => "O aplikaci",
         "Product Information" => "Informace o produktu",
         "About GridCraft" => "O aplikaci GridCraft",
         "Version" => "Verze",

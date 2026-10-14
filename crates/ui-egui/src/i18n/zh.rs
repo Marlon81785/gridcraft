@@ -342,7 +342,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Export" => "导出",
         "Close" => "关闭",
         "Options" => "选项",
-        "Account" => "账户",
+        "About" => "关于",
         "Product Information" => "产品信息",
         "About GridCraft" => "关于 GridCraft",
         "Version" => "版本",

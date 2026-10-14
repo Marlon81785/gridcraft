@@ -344,7 +344,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Export" => "Экспорт",
         "Close" => "Закрыть",
         "Options" => "Параметры",
-        "Account" => "Учетная запись",
+        "About" => "О программе",
         "Product Information" => "Сведения о продукте",
         "About GridCraft" => "О программе GridCraft",
         "Version" => "Версия",

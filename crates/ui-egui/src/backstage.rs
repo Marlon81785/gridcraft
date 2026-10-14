@@ -2,7 +2,7 @@
 //! and sheet tabs until Esc or the back arrow returns to the sheet.
 //!
 //! A navigation column on the left picks a page (Home, New, Open, Info, Save As, Print, Export,
-//! Options, Account); Save and Close act at once. Every action runs an existing command through
+//! Options, About); Save and Close act at once. Every action runs an existing command through
 //! [`SheetApp::run`] or an existing dialog through [`SheetApp::open_dialog`]; the state here is
 //! UI-only and never saved. Recent workbooks are listed by path only: nothing on disk is touched
 //! until the user picks one.
@@ -31,11 +31,11 @@ pub enum Page {
     Print,
     Export,
     Options,
-    Account,
+    About,
 }
 
 impl Page {
-    pub const ALL: [Page; 9] = [Page::Home, Page::New, Page::Open, Page::Info, Page::SaveAs, Page::Print, Page::Export, Page::Options, Page::Account];
+    pub const ALL: [Page; 9] = [Page::Home, Page::New, Page::Open, Page::Info, Page::SaveAs, Page::Print, Page::Export, Page::Options, Page::About];
 
     /// The id `ui.backstage` and `ui.dialog {"name": "backstage", "page": …}` take.
     pub fn id(self) -> &'static str {
@@ -48,7 +48,7 @@ impl Page {
             Page::Print => "print",
             Page::Export => "export",
             Page::Options => "options",
-            Page::Account => "account",
+            Page::About => "about",
         }
     }
 
@@ -68,7 +68,7 @@ impl Page {
             Page::Print => "Print",
             Page::Export => "Export",
             Page::Options => "Options",
-            Page::Account => "Account",
+            Page::About => "About",
         }
     }
 
@@ -82,7 +82,7 @@ impl Page {
             Page::Print => Icon::Print,
             Page::Export => Icon::Share,
             Page::Options => Icon::Settings,
-            Page::Account => Icon::Info,
+            Page::About => Icon::Info,
         }
     }
 }
@@ -178,9 +178,9 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
                     out.close = true;
                 }
             }
-            // Bottom up: Account sits just above Options, as in Excel.
+            // Bottom up: About sits just above Options, where Excel has Account (GridCraft has no account to sign in to).
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                for page in [Page::Options, Page::Account] {
+                for page in [Page::Options, Page::About] {
                     if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
                         out.page = Some(page);
                     }
@@ -202,7 +202,7 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
                     Page::Print => print(app, ui, &mut bs, &mut out),
                     Page::Export => export(app, ui, &mut out),
                     Page::Options => options(app, ui),
-                    Page::Account => account(app, ui),
+                    Page::About => about(app, ui),
                 }
             });
         });
@@ -875,14 +875,15 @@ fn platform() -> String {
     format!("{os} ({})", std::env::consts::ARCH)
 }
 
-/// Excel's File › Account: product information and the About window.
-fn account(app: &mut SheetApp, ui: &mut Ui) {
+/// The File view's About page (Excel's File › Account, which GridCraft has no sign-in for):
+/// product information and the About window.
+fn about(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let lang = app.ui.language;
     section(ui, lang, "Product Information");
     ui.label(RichText::new("GridCraft").font(theme::ui_bold(16.0)).color(t.text));
     ui.add_space(8.0);
-    egui::Grid::new("backstage_account").num_columns(2).spacing(vec2(18.0, 8.0)).show(ui, |ui| {
+    egui::Grid::new("backstage_about").num_columns(2).spacing(vec2(18.0, 8.0)).show(ui, |ui| {
         for (label, value) in
             [("Version", env!("CARGO_PKG_VERSION").to_string()), ("Platform", platform()), ("Licence", env!("CARGO_PKG_LICENSE").to_string())]
         {

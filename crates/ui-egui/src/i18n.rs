@@ -519,7 +519,7 @@ const JAPANESE: &[(&str, &str)] = &[
     ("Export", "エクスポート"),
     ("Close", "閉じる"),
     ("Options", "オプション"),
-    ("Account", "アカウント"),
+    ("About", "バージョン情報"),
     ("Product Information", "製品情報"),
     ("About GridCraft", "GridCraft について"),
     ("Version", "バージョン"),

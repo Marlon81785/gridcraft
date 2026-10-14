@@ -345,7 +345,6 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Export" => "Exportar",
         "Close" => "Fechar",
         "Options" => "Opções",
-        "Account" => "Conta",
         "Product Information" => "Informações do produto",
         "Version" => "Versão",
         "Platform" => "Plataforma",
