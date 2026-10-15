@@ -65,5 +65,5 @@ fn previews_show_the_preset() {
         assert_eq!(cf_glyphs::width(CfGlyph::IconSet(set)), 18.0 * n as f32 - 4.0, "{set} leaves room for {n} icons");
     }
     let arrows = paint(CfGlyph::IconSet("3Arrows")).1;
-    assert_eq!(arrows.iter().filter(|s| matches!(s, Shape::Path(_))).count(), 3, "one arrow per icon");
+    assert_eq!(arrows.iter().filter(|s| matches!(s, Shape::Path(_))).count(), 6, "a head and a stem per arrow");
 }

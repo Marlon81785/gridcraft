@@ -1499,16 +1499,24 @@ pub(crate) fn paint_cf_icon(p: &Painter, r: Rect, set: &str, idx: usize) {
     };
     let lower = set.to_ascii_lowercase();
     if lower.contains("arrow") {
-        let c = r.center();
-        let s = r.width() / 2.0;
-        let pts = if idx + 1 == n {
-            vec![pos2(c.x, c.y - s), pos2(c.x + s, c.y + 0.1 * s), pos2(c.x - s, c.y + 0.1 * s)]
+        // Excel's block arrows: a head on a stem, turning from down (lowest) through right to up
+        // (highest); green at the top, red at the bottom, yellow between (grey sets stay grey).
+        let t = idx as f32 / (n - 1).max(1) as f32;
+        let angle = (90.0 - 180.0 * t).to_radians();
+        let col = if lower.contains("gray") {
+            Color32::from_rgb(0x80, 0x80, 0x80)
+        } else if idx + 1 == n {
+            Color32::from_rgb(0x00, 0xA6, 0x50)
         } else if idx == 0 {
-            vec![pos2(c.x, c.y + s), pos2(c.x - s, c.y - 0.1 * s), pos2(c.x + s, c.y - 0.1 * s)]
+            Color32::from_rgb(0xE0, 0x30, 0x20)
         } else {
-            vec![pos2(c.x + s, c.y), pos2(c.x - 0.1 * s, c.y - s), pos2(c.x - 0.1 * s, c.y + s)]
+            Color32::from_rgb(0xF5, 0xB4, 0x00)
         };
-        p.add(egui::Shape::convex_polygon(pts, col, Stroke::NONE));
+        let (c, s) = (r.center(), r.width() / 2.0);
+        let (dx, dy) = (angle.cos(), angle.sin());
+        let at = |along: f32, across: f32| pos2(c.x + s * (along * dx - across * dy), c.y + s * (along * dy + across * dx));
+        p.add(egui::Shape::convex_polygon(vec![at(1.0, 0.0), at(0.05, 0.9), at(0.05, -0.9)], col, Stroke::NONE));
+        p.add(egui::Shape::convex_polygon(vec![at(0.1, 0.38), at(-1.0, 0.38), at(-1.0, -0.38), at(0.1, -0.38)], col, Stroke::NONE));
     } else if lower.contains("rating") {
         // Excel's signal bars: four rising bars, filled blue up to the level.
         let filled = if n == 4 { idx + 1 } else { idx };
