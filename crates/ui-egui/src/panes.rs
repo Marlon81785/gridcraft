@@ -282,7 +282,13 @@ fn format_chart(app: &mut SheetApp, ui: &mut Ui) {
                 ui.label(egui::RichText::new(&s.values).small().color(Color32::from_gray(110)));
                 // Excel's Change Chart Type ▸ Combo: a chart type and axis per series.
                 if combo_capable(chart.kind) {
-                    let kind = gridcraft_chart::series_plot_kind(&chart, i);
+                    // Shown by family: a marker line or stacked column is still a Line or Column, and
+                    // picking its own family again leaves the markers or stacking alone.
+                    let kind = match gridcraft_chart::series_plot_kind(&chart, i) {
+                        ChartKind::Line | ChartKind::LineMarkers | ChartKind::LineStacked => ChartKind::Line,
+                        ChartKind::Area | ChartKind::AreaStacked => ChartKind::Area,
+                        _ => ChartKind::ColumnClustered,
+                    };
                     let kinds =
                         [("Column", "column", ChartKind::ColumnClustered), ("Line", "line", ChartKind::Line), ("Area", "area", ChartKind::Area)];
                     let shown = kinds.iter().find(|(_, _, k)| *k == kind).map(|(l, _, _)| *l).unwrap_or("Column");
