@@ -161,3 +161,63 @@ fn reversed_or_zero_axis_settings_read_as_auto() {
     let c = crate::chart::read_chart(&root).unwrap();
     assert!(c.y2_axis.is_auto(), "{:?}", c.y2_axis);
 }
+
+#[test]
+fn combo_area_and_stacked_column_series_keep_their_type_on_either_axis() {
+    use ChartKind::*;
+    let kinds = [(ColumnStacked, false), (ColumnStacked, false), (Area, false), (LineMarkers, false), (AreaStacked, true), (ColumnStacked, true)];
+    let sers = kinds.iter().enumerate().map(|(i, (k, sec))| series(if i % 2 == 0 { "B" } else { "C" }, Some(*k), *sec)).collect();
+    let bytes = write_xlsx(&workbook(chart(Combo, sers))).unwrap();
+    let xml = chart_xml(&bytes);
+    // One plot group per axis and type: areas, stacked columns and the marker line stay apart.
+    assert_eq!(xml.matches("<c:areaChart>").count(), 2, "{xml}");
+    assert_eq!(xml.matches("<c:barChart>").count(), 2, "{xml}");
+    assert_eq!(xml.matches("<c:lineChart>").count(), 1, "{xml}");
+    assert_eq!(xml.matches("<c:grouping val=\"stacked\"/>").count(), 3, "{xml}");
+
+    let (back, _) = read_xlsx(&bytes).unwrap();
+    let c = &back.sheet(0).unwrap().charts[0];
+    assert_eq!(c.kind, Combo);
+    let got: Vec<(ChartKind, bool)> = c.series.iter().map(|s| (s.kind.unwrap(), s.secondary)).collect();
+    assert_eq!(got, kinds, "series come back in order with their type and axis");
+    assert_eq!(c.y2_title.as_deref(), Some("pH"));
+    assert_eq!(c.y2_axis, AxisScale { min: Some(6.0), max: Some(10.0), major_unit: None });
+}
+
+#[test]
+fn a_secondary_group_written_first_is_still_read_as_secondary() {
+    // Excel may list the secondary group before the primary one: the axes it plots against
+    // (a hidden category axis, a value axis on the right) say which is which, not the order.
+    let bar_start = EXCEL_PLOT.find("<c:barChart>").unwrap();
+    let line_start = EXCEL_PLOT.find("<c:lineChart>").unwrap();
+    let line_end = EXCEL_PLOT.find("</c:lineChart>").unwrap() + "</c:lineChart>".len();
+    let plot = format!(
+        "{}{}\n{}{}",
+        &EXCEL_PLOT[..bar_start],
+        &EXCEL_PLOT[line_start..line_end],
+        &EXCEL_PLOT[bar_start..line_start],
+        &EXCEL_PLOT[line_end..]
+    );
+    // The hidden secondary category axis comes first too, and the primary one has a title.
+    let hidden = plot[plot.rfind("<c:catAx>").unwrap()..plot.find("</c:plotArea>").unwrap()].to_string();
+    let plot = plot.replacen(&hidden, "", 1).replacen("<c:catAx>", &format!("{hidden}<c:catAx>"), 1).replacen(
+        "<c:axPos val=\"b\"/><c:numFmt formatCode=\"dd/mm/yyyy\"",
+        "<c:axPos val=\"b\"/><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Date</a:t></a:r></a:p></c:rich></c:tx></c:title><c:numFmt formatCode=\"dd/mm/yyyy\"",
+        1,
+    );
+    assert!(plot.find("<c:lineChart>").unwrap() < plot.find("<c:barChart>").unwrap());
+    assert!(plot.find("<c:delete val=\"1\"/>").unwrap() < plot.find("dd/mm/yyyy").unwrap());
+    let xml = format!(
+        "<?xml version=\"1.0\"?><c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><c:chart>{plot}</c:chart></c:chartSpace>"
+    );
+    let root = crate::xml::parse(xml.as_bytes()).unwrap();
+    let c = crate::chart::read_chart(&root).unwrap();
+    assert_eq!(c.kind, ChartKind::Combo);
+    let got: Vec<(Option<ChartKind>, bool)> = c.series.iter().map(|s| (s.kind, s.secondary)).collect();
+    assert_eq!(got, [(Some(ChartKind::ColumnClustered), false), (Some(ChartKind::LineMarkers), true)]);
+    assert_eq!(c.x_title.as_deref(), Some("Date"));
+    assert_eq!(c.y_title.as_deref(), Some("Conductivity (uS/cm)"));
+    assert_eq!(c.y2_title.as_deref(), Some("pH"));
+    assert_eq!(c.y_axis, AxisScale { min: Some(0.0), max: Some(3000.0), major_unit: None });
+    assert_eq!(c.y2_axis, AxisScale { min: Some(6.0), max: Some(10.0), major_unit: Some(0.5) });
+}

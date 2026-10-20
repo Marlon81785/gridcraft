@@ -187,31 +187,47 @@ pub fn read_chart(root: &El) -> Option<Chart> {
     let chart = root.child("chart")?;
     let plot = chart.child("plotArea")?;
     let groups: Vec<(&El, ChartKind)> = plot.children.iter().filter_map(|g| group_kind(g).map(|k| (g, k))).collect();
-    let (first, first_kind) = *groups.first()?;
+    groups.first()?;
+    // The primary group is the first one not plotted on secondary axes: Excel may list a
+    // secondary group first, so document order alone cannot tell them apart.
+    let axis = |id: &str| plot.children.iter().find(|a| a.name.ends_with("Ax") && a.child_val("axId") == Some(id));
+    let on_secondary_axes = |g: &El| {
+        axis_ids(g).iter().filter_map(|id| axis(id)).any(|a| match a.name.as_str() {
+            // Excel hides the secondary category axis and puts the secondary value axis on the right.
+            "catAx" | "dateAx" => bool_val(a, "delete"),
+            "valAx" => matches!(a.child_val("axPos"), Some("r") | Some("t")) && plot.kids("valAx").count() > 1,
+            _ => false,
+        })
+    };
+    let (first, first_kind) = *groups.iter().find(|(g, _)| !on_secondary_axes(g)).or(groups.first())?;
     let first_axes = axis_ids(first);
     let mut series = vec![];
-    for (gi, (g, k)) in groups.iter().enumerate() {
+    for (g, k) in &groups {
         for s in g.kids("ser") {
             let mut ser = read_series(s);
             // In a combo every series keeps its group's type, the first group's too: otherwise a
             // second column series would come back as a line (the combo default for series 2+).
             if groups.len() > 1 {
                 ser.kind = Some(*k);
-                ser.secondary = gi > 0 && axis_ids(g) != first_axes;
+                ser.secondary = axis_ids(g) != first_axes;
             }
-            series.push(ser);
+            series.push((s.child_val("order").and_then(|v| v.trim().parse::<u32>().ok()).unwrap_or(u32::MAX), ser));
         }
     }
+    // Groups are written by type, so a combo's series come back in their plotting order.
+    series.sort_by_key(|(order, _)| *order);
+    let series: Vec<Series> = series.into_iter().map(|(_, s)| s).collect();
     let kind = if groups.len() > 1 { ChartKind::Combo } else { first_kind };
     let show_val = |e: &El| e.child("dLbls").is_some_and(|d| bool_val(d, "showVal"));
     let data_labels = groups.iter().any(|(g, _)| show_val(g) || g.kids("ser").any(show_val));
     let val_axes: Vec<&El> = plot.kids("valAx").collect();
-    let cat_ax = plot.child("catAx").or_else(|| plot.child("dateAx"));
     let scatter = matches!(first_kind, ChartKind::Scatter | ChartKind::ScatterLines | ChartKind::Bubble);
     // The secondary value axis is the one a secondary group plots against.
-    let secondary_ids: Vec<String> = groups.iter().skip(1).filter(|(g, _)| axis_ids(g) != first_axes).flat_map(|(g, _)| axis_ids(g)).collect();
+    let secondary_ids: Vec<String> = groups.iter().filter(|(g, _)| axis_ids(g) != first_axes).flat_map(|(g, _)| axis_ids(g)).collect();
     let on_first = |a: &&El| a.child("axId").and_then(|i| i.attr("val")).is_some_and(|id| first_axes.iter().any(|f| f == id));
     let on_secondary = |a: &&El| a.child("axId").and_then(|i| i.attr("val")).is_some_and(|id| secondary_ids.iter().any(|f| f == id));
+    let cat_axes = || plot.children.iter().filter(|a| matches!(a.name.as_str(), "catAx" | "dateAx"));
+    let cat_ax = cat_axes().find(on_first).or_else(|| cat_axes().next());
     let (x_ax, y_ax) = if scatter {
         let x = val_axes.iter().find(|a| matches!(a.child_val("axPos"), Some("b") | Some("t")) && on_first(a)).copied();
         let y = val_axes.iter().find(|a| matches!(a.child_val("axPos"), Some("l") | Some("r")) && on_first(a)).copied();
@@ -297,6 +313,17 @@ fn group_for(k: ChartKind) -> G {
         ChartKind::Radar => G::Radar,
         ChartKind::Stock => G::Stock,
         // Combo charts start from clustered columns; chartex kinds have their own part.
+        _ => G::Bar { bar: false, grouping: "clustered" },
+    }
+}
+
+/// The plot group a combo-chart series is written in. A combo shares one category axis, so
+/// horizontal bars become columns, and kinds that cannot join a combo fall back as drawn.
+fn combo_group(k: ChartKind) -> G {
+    match group_for(k) {
+        G::Bar { grouping, .. } => G::Bar { bar: false, grouping },
+        g @ (G::Line { .. } | G::Area { .. }) => g,
+        G::Radar | G::Scatter { .. } => G::Line { stacked: false, markers: false },
         _ => G::Bar { bar: false, grouping: "clustered" },
     }
 }
@@ -667,24 +694,32 @@ pub fn write_chart(wb: &Workbook, si: usize, ch: &Chart) -> String {
     if ch.kind == ChartKind::Combo {
         // Series without a kind of their own: the first is a column, the others lines (as drawn).
         let kind = |i: usize, x: &Series| x.kind.filter(|k| *k != ChartKind::Combo).or((i > 0).then_some(ChartKind::Line));
-        let is_line = |k: Option<ChartKind>| matches!(k.map(group_for), Some(G::Line { .. } | G::Area { .. } | G::Radar | G::Scatter { .. }));
-        let bars: Vec<(usize, &Series)> = all.iter().filter(|(i, x)| !x.secondary && !is_line(kind(*i, x))).copied().collect();
-        let lines: Vec<(usize, &Series)> = all.iter().filter(|(i, x)| !x.secondary && is_line(kind(*i, x))).copied().collect();
-        let sec: Vec<(usize, &Series)> = all.iter().filter(|(_, x)| x.secondary).copied().collect();
+        // One plot group per (axis, type): area, stacked columns and marker lines keep their
+        // own group. Groups are written areas first, then columns, then lines (Excel's own
+        // order, so areas sit behind), primary before secondary.
+        let mut groups: Vec<(bool, G, Vec<(usize, &Series)>)> = vec![];
+        for &(i, x) in &all {
+            let g = combo_group(kind(i, x).unwrap_or(ChartKind::ColumnClustered));
+            match groups.iter_mut().find(|(sec, gg, _)| *sec == x.secondary && *gg == g) {
+                Some((_, _, list)) => list.push((i, x)),
+                None => groups.push((x.secondary, g, vec![(i, x)])),
+            }
+        }
+        let rank = |g: &G| match g {
+            G::Area { .. } => 0,
+            G::Bar { .. } => 1,
+            _ => 2,
+        };
+        groups.sort_by_key(|(sec, g, _)| (*sec, rank(g)));
         primary_g = G::Bar { bar: false, grouping: "clustered" };
-        if !bars.is_empty() || (lines.is_empty() && sec.is_empty()) {
-            s.push_str(&group_xml(primary_g, &bars, ch, (1, 2), wb, si));
+        if groups.is_empty() {
+            s.push_str(&group_xml(primary_g, &[], ch, (1, 2), wb, si));
         }
-        if !lines.is_empty() {
-            s.push_str(&group_xml(G::Line { stacked: false, markers: false }, &lines, ch, (1, 2), wb, si));
-        }
-        if !sec.is_empty() {
-            let g = match sec.first().and_then(|(_, x)| x.kind).map(group_for) {
-                Some(b @ G::Bar { .. }) => b,
-                _ => G::Line { stacked: false, markers: false },
-            };
-            s.push_str(&group_xml(g, &sec, ch, (3, 4), wb, si));
-            secondary = Some(g);
+        for (sec, g, list) in &groups {
+            s.push_str(&group_xml(*g, list, ch, if *sec { (3, 4) } else { (1, 2) }, wb, si));
+            if *sec {
+                secondary = Some(*g);
+            }
         }
     } else {
         primary_g = match group_for(ch.kind) {
