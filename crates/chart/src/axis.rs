@@ -26,9 +26,11 @@ impl Scale {
         (0..=n)
             .map(|i| {
                 let v = self.min + i as f64 * self.step;
-                // Snap away accumulated float error.
+                // Snap away accumulated float error only: a fixed minimum need not be a multiple
+                // of the step, and the ticks stay anchored at it.
                 let snapped = (v / self.step).round() * self.step;
-                if snapped.abs() < self.step * 1e-9 { 0.0 } else { snapped }
+                let v = if (snapped - v).abs() < self.step * 1e-6 { snapped } else { v };
+                if v.abs() < self.step * 1e-9 { 0.0 } else { v }
             })
             .collect()
     }

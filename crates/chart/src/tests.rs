@@ -1086,6 +1086,19 @@ fn fixed_axis_bounds_and_unit_replace_the_automatic_scale() {
 }
 
 #[test]
+fn ticks_stay_anchored_at_a_fixed_minimum_that_is_not_a_multiple_of_the_step() {
+    let s = Scale { min: 6.2, max: 10.0, step: 0.5 };
+    let ticks = s.ticks();
+    assert_eq!(ticks.len(), 8, "{ticks:?}");
+    for (i, t) in ticks.iter().enumerate() {
+        assert!((t - (6.2 + 0.5 * i as f64)).abs() < 1e-9, "{ticks:?}");
+        assert!((s.min..=s.max).contains(t), "tick {t} outside the axis: {ticks:?}");
+    }
+    // Float error is still snapped away on a step-aligned scale: the zero tick is exactly 0.
+    assert_eq!(Scale { min: -0.3, max: 0.3, step: 0.1 }.ticks()[3], 0.0);
+}
+
+#[test]
 fn combo_chart_draws_fixed_bounds_and_the_secondary_axis_title() {
     let mut c = chart(ChartKind::Combo);
     c.y2_title = Some("pH".into());
