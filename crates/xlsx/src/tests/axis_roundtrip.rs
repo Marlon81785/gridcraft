@@ -100,7 +100,7 @@ fn automatic_axes_write_no_bounds_and_read_back_as_auto() {
     ch.y2_title = None;
     let bytes = write_xlsx(&workbook(ch)).unwrap();
     let xml = chart_xml(&bytes);
-    assert!(!xml.contains("<c:min") && !xml.contains("<c:max") && !xml.contains("<c:majorUnit"), "{xml}");
+    assert!(!xml.contains("<c:min val") && !xml.contains("<c:max val") && !xml.contains("<c:majorUnit"), "{xml}");
     let (back, _) = read_xlsx(&bytes).unwrap();
     let c = &back.sheet(0).unwrap().charts[0];
     assert!(c.y_axis.is_auto() && c.y2_axis.is_auto() && c.y2_title.is_none());
