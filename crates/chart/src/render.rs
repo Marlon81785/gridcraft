@@ -1056,7 +1056,11 @@ fn cartesian(ctx: &mut Ctx, chart: &Chart, data: &ChartData, area: Bx, horizonta
                     let k = slot_of.get(i).copied().unwrap_or(0) as f32;
                     for (j, sp) in row.iter().enumerate() {
                         let Some((b, t)) = sp else { continue };
-                        let (pb, pt) = (vpos(*b, &sc), vpos(*t, &sc));
+                        let (b, t) = (b.clamp(sc.min, sc.max), t.clamp(sc.min, sc.max));
+                        if b == t {
+                            continue;
+                        }
+                        let (pb, pt) = (vpos(b, &sc), vpos(t, &sc));
                         let c = center(j);
                         let lo = pb.min(pt);
                         let len = (pb - pt).abs();
@@ -1067,7 +1071,7 @@ fn cartesian(ctx: &mut Ctx, chart: &Chart, data: &ChartData, area: Bx, horizonta
                             let x = c - nslots * bw / 2.0 + k * bw;
                             ctx.rect(x, lo, bw, len, s.color, None);
                         }
-                        if labels_on && let Some(v) = s.values.get(j).copied().flatten() {
+                        if labels_on && let Some(v) = s.values.get(j).copied().flatten().filter(|v| (sc.min..=sc.max).contains(v)) {
                             let t = fmt.format(v, None);
                             let stacked = fam != Fam::Col;
                             let mid = (pb + pt) / 2.0;

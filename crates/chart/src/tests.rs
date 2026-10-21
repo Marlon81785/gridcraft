@@ -1086,6 +1086,46 @@ fn fixed_axis_bounds_and_unit_replace_the_automatic_scale() {
 }
 
 #[test]
+fn columns_are_clipped_to_fixed_value_axis_bounds() {
+    let mut c = chart(ChartKind::ColumnClustered);
+    c.y_axis = AxisScale { min: Some(100.0), max: Some(110.0), major_unit: None };
+    let color = [220, 20, 60, 255];
+    let d = ChartData {
+        palette: vec![],
+        categories: ["A", "B", "Below", "Above"].into_iter().map(str::to_string).collect(),
+        series: vec![series("Values", &[101.0, 105.0, 90.0, 115.0], color, ChartKind::ColumnClustered)],
+    };
+    let prims = render(&c, &d, 640.0, 400.0, &ApproxMeasure);
+    let bars: Vec<_> = prims
+        .iter()
+        .filter_map(|p| match p {
+            Prim::Rect { y, w, h, fill: Some(fill), .. } if *fill == color && *w > 20.0 => Some((*y, *h)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(bars.len(), 3, "the below-minimum value should be fully clipped");
+
+    let baseline = prims
+        .iter()
+        .filter_map(|p| match p {
+            Prim::Line { pts, color: [0xBF, 0xBF, 0xBF, 0xFF], .. } if pts.len() == 2 && (pts[0][1] - pts[1][1]).abs() < 0.01 => Some(pts[0][1]),
+            _ => None,
+        })
+        .fold(f32::NEG_INFINITY, f32::max);
+    assert!(baseline.is_finite(), "the value-axis baseline is present");
+    assert!(bars.iter().all(|(y, h)| (y + h - baseline).abs() < 0.01), "{bars:?}, baseline={baseline}");
+    let plot_top = prims
+        .iter()
+        .filter_map(|p| match p {
+            Prim::Line { pts, color: [0xD9, 0xD9, 0xD9, 0xFF], .. } if pts.len() == 2 && (pts[0][1] - pts[1][1]).abs() < 0.01 => Some(pts[0][1]),
+            _ => None,
+        })
+        .fold(f32::INFINITY, f32::min);
+    assert!(plot_top.is_finite(), "the plot top gridline is present");
+    assert!(bars.iter().any(|(y, _)| (*y - plot_top).abs() < 0.01), "the above-maximum bar is clipped to the plot top: {bars:?}");
+}
+
+#[test]
 fn ticks_stay_anchored_at_a_fixed_minimum_that_is_not_a_multiple_of_the_step() {
     let s = Scale { min: 6.2, max: 10.0, step: 0.5 };
     let ticks = s.ticks();
